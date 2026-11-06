@@ -242,3 +242,16 @@ class FindingState(Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
     action: Mapped[str] = mapped_column(String(30))
     data: Mapped[dict] = mapped_column(JSON)
+
+
+class RadarCollection(Base):
+    __tablename__ = "radar_collections"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    since: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    until: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    basis: Mapped[str] = mapped_column(String(20), default="published")
+    enrich: Mapped[bool] = mapped_column(default=True)
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    progress: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

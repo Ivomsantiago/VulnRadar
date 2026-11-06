@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session as DBSession
 from .config import settings
 from .db import Activity, Advisory, Alias, Project, Scan, Session, Source, Vulnerability, Watch, engine, get_session, now
 from .security import authorized_path
-from .services.intelligence import query_osv, upsert, normalize
+from .services.intelligence import query_osv, upsert, normalize, repair_unrated_assessments
 from .services.monitoring import check_watch, prioritize, get_epss_threshold
 from .services.reporting import cyclone_dx, sarif
 from .services.evidence import evidence
@@ -31,6 +31,7 @@ from .services.notifications import notification_loop
 from .services.products import router as products_router, product_rows, ensure_product_index
 from .services.history import ensure_baseline
 from .services.oci import router as oci_router
+from .radar import router as radar_router, recover_collections
 
 
 @asynccontextmanager
@@ -45,6 +46,8 @@ async def lifespan(app):
         backfill(session)
         ensure_baseline(session)
         ensure_product_index(session)
+        recover_collections(session)
+        repair_unrated_assessments(session)
     spawn(scheduler_loop())
     spawn(notification_loop())
     yield
@@ -59,6 +62,7 @@ app.include_router(operations_router)
 app.include_router(reports_router)
 app.include_router(products_router)
 app.include_router(oci_router)
+app.include_router(radar_router)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 app.add_middleware(CORSMiddleware, allow_origins=settings.origins, allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["Content-Type", "X-VulnRadar-Client"])
 

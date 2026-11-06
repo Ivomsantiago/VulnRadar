@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { journeys } from "./navigation";
 import { OCI } from "./OCI";
+import { RadarPage } from "./Radar";
 import { type Source } from "./api";
 import { Empty, useData } from "./shared";
 import { useStored, Skeleton } from "./ui";
@@ -45,6 +46,7 @@ import { Sources } from "./Sources";
 import { HistoryPage } from "./History";
 import { SettingsPage } from "./Settings";
 import "./style.css";
+import "./radar.css";
 const Overview = React.lazy(() =>
   import("./Overview").then((m) => ({ default: m.Overview })),
 );
@@ -241,7 +243,8 @@ function App() {
           )}
           <React.Suspense fallback={<Skeleton rows={7} />}>
             <Routes>
-              <Route path="/" element={<Overview />} />
+              <Route path="/" element={<RadarPage />} />
+              <Route path="/exposure" element={<Overview />} />
               <Route path="/priorities" element={<FindingsPage />} />
               <Route path="/feed" element={<Feed />} />
               <Route path="/exploration" element={<Feed kev />} />

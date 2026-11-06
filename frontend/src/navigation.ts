@@ -13,7 +13,7 @@ export const journeys = [
   {
     label: "Visão geral",
     icon: LayoutDashboard,
-    items: [{ path: "/", label: "Dashboard" }],
+    items: [{ path: "/", label: "Radar de vulnerabilidades" }],
   },
   {
     label: "Inteligência de vulnerabilidades",
@@ -28,7 +28,10 @@ export const journeys = [
   {
     label: "Aplicações e repositórios",
     icon: FolderGit2,
-    items: [{ path: "/projects", label: "Repositórios" }],
+    items: [
+      { path: "/projects", label: "Repositórios" },
+      { path: "/exposure", label: "Exposição das aplicações" },
+    ],
   },
   {
     label: "Análises e inventário",
