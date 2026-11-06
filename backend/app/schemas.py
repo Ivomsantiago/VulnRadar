@@ -1,10 +1,24 @@
 from typing import Literal
-from pydantic import BaseModel, Field
+from datetime import datetime
+from pydantic import BaseModel, Field, field_validator
+from .db import utc_datetime
 
 
 class TriageInput(BaseModel):
     status: Literal["new", "pending", "investigating", "applicable", "not_applicable", "false_positive", "planned", "remediating", "mitigated", "resolved", "accepted"]
     reason: str = Field(min_length=3, max_length=4000)
+
+
+class FindingTriageInput(TriageInput):
+    owner: str | None = Field(None, max_length=150)
+    due_at: datetime | None = None
+    risk_expires_at: datetime | None = None
+    remediation_plan: str | None = Field(None, max_length=8000)
+
+    @field_validator("due_at", "risk_expires_at")
+    @classmethod
+    def normalize_dates(cls, value):
+        return utc_datetime(value) if value is not None else None
 
 
 class PackageQuery(BaseModel):

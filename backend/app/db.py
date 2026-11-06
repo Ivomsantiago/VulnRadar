@@ -9,6 +9,11 @@ def now():
     return datetime.now(timezone.utc)
 
 
+def utc_datetime(value: datetime):
+    """SQLite returns naive timestamps; stored and unzoned API dates use UTC."""
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -160,6 +165,10 @@ class Finding(Base):
     status: Mapped[str] = mapped_column(String(50), default="new", index=True)
     evidence: Mapped[dict] = mapped_column(JSON)
     fixed_versions: Mapped[list] = mapped_column(JSON, default=list)
+    owner: Mapped[str | None] = mapped_column(String(150))
+    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    risk_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    remediation_plan: Mapped[str | None] = mapped_column(Text)
     first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
 

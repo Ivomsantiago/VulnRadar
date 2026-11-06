@@ -1,6 +1,6 @@
 # VulnRadar
 
-Leia docs/PRODUCT_SPEC.md, docs/PRODUCT_SPEC_V2.md, docs/V2_AUDIT.md e docs/IMPLEMENTATION_STATUS.md antes de alterar o projeto.
+Leia docs/PRODUCT_SPEC.md, docs/PRODUCT_SPEC_V2.md, docs/PRODUCT_SPEC_V3.md, docs/V3_AUDIT.md, docs/V2_AUDIT.md e docs/IMPLEMENTATION_STATUS.md antes de alterar o projeto.
 KPIs de exposição devem usar achados observados em projetos; nunca substituir por contagens de CVEs globais.
 Preserve inventários e achados por migrações aditivas. Scans parciais não podem resolver achados por ausência.
 Use scripts/start_test_server.py para testes de navegador com banco descartável; não misture fixtures com o banco operacional.

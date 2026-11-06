@@ -6,6 +6,16 @@ import { api } from "./api";
 export const formatDate = (value: string | null | undefined) =>
   value ? new Date(value).toLocaleString("pt-BR") : "Não informado";
 
+export function localDateTime(value: string | null | undefined) {
+  if (!value) return "";
+  const date = new Date(
+    /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : value + "Z",
+  );
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+}
+
 export const severityLabel: Record<string, string> = {
   CRITICAL: "Crítica",
   HIGH: "Alta",

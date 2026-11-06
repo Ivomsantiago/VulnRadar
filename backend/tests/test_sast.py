@@ -19,3 +19,10 @@ async def test_real_semgrep_local_rules(tmp_path, monkeypatch):
     assert finding["check_id"] == "python-subprocess-shell"
     assert "subprocess.run" in finding["extra"]["lines"]
     assert "TEST_ONLY_SECRET" not in finding["extra"]["lines"]
+    original = finding["code_digest"]
+    source = tmp_path / "unsafe.py"
+    source.write_text("\n\n\n" + source.read_text())
+    moved = await sast(tmp_path)
+    shifted = next(item for item in moved["findings"] if item["check_id"] == finding["check_id"])
+    assert shifted["code_digest"] == original
+    assert shifted["start"]["line"] == finding["start"]["line"] + 3

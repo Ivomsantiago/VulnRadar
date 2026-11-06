@@ -10,6 +10,7 @@ import {
   ErrorBox,
   Header,
   formatDate,
+  localDateTime,
   statusLabels,
   useData,
 } from "./shared";
@@ -143,10 +144,29 @@ export function FindingDetails({
   const [tab, setTab] = useState("summary");
   const [status, setStatus] = useState("investigating");
   const [reason, setReason] = useState("");
+  const [assignment, setAssignment] = useState<{
+    owner?: string;
+    due_at?: string;
+    risk_expires_at?: string;
+    remediation_plan?: string;
+  }>({});
   const [vulnerability, setVulnerability] = useState<string | null>(null);
   const mutation = useMutation({
     mutationFn: () =>
-      api("/findings/" + id + "/triage", "PATCH", { status, reason }),
+      api("/findings/" + id + "/triage", "PATCH", {
+        status,
+        reason,
+        ...Object.fromEntries(
+          Object.entries(assignment).map(([key, value]) => [
+            key,
+            key.endsWith("_at")
+              ? value
+                ? new Date(value).toISOString()
+                : null
+              : value,
+          ]),
+        ),
+      }),
     onSuccess: () => {
       qc.invalidateQueries();
       setReason("");
@@ -284,6 +304,70 @@ export function FindingDetails({
                               value={reason}
                               onChange={(e) => setReason(e.target.value)}
                               placeholder="Contexto, evidências e ação de remediação"
+                            />
+                          </label>
+                          <div className="form-grid">
+                            <label>
+                              Responsável
+                              <input
+                                maxLength={150}
+                                value={assignment.owner ?? finding.owner ?? ""}
+                                onChange={(e) =>
+                                  setAssignment({
+                                    ...assignment,
+                                    owner: e.target.value,
+                                  })
+                                }
+                              />
+                            </label>
+                            <label>
+                              Prazo / SLA
+                              <input
+                                type="datetime-local"
+                                value={
+                                  assignment.due_at ??
+                                  localDateTime(finding.due_at)
+                                }
+                                onChange={(e) =>
+                                  setAssignment({
+                                    ...assignment,
+                                    due_at: e.target.value,
+                                  })
+                                }
+                              />
+                            </label>
+                          </div>
+                          {status === "accepted" && (
+                            <label>
+                              Validade do aceite de risco
+                              <input
+                                type="datetime-local"
+                                required
+                                value={assignment.risk_expires_at ?? ""}
+                                onChange={(e) =>
+                                  setAssignment({
+                                    ...assignment,
+                                    risk_expires_at: e.target.value,
+                                  })
+                                }
+                              />
+                            </label>
+                          )}
+                          <label>
+                            Plano de correção
+                            <textarea
+                              maxLength={8000}
+                              value={
+                                assignment.remediation_plan ??
+                                finding.remediation_plan ??
+                                ""
+                              }
+                              onChange={(e) =>
+                                setAssignment({
+                                  ...assignment,
+                                  remediation_plan: e.target.value,
+                                })
+                              }
                             />
                           </label>
                           <button

@@ -25,6 +25,7 @@ from .services.evidence import evidence
 from .db import AffectedPackage, Finding, SyncRun
 from .logging import configure_logging
 from .operations import router as operations_router
+from .reports import router as reports_router
 from .services.findings import backfill
 from .services.notifications import notification_loop
 
@@ -50,6 +51,7 @@ async def lifespan(app):
 
 app = FastAPI(title="VulnRadar", version=__version__, lifespan=lifespan)
 app.include_router(operations_router)
+app.include_router(reports_router)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 app.add_middleware(CORSMiddleware, allow_origins=settings.origins, allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["Content-Type", "X-VulnRadar-Client"])
 

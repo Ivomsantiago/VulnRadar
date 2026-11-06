@@ -145,3 +145,7 @@ O launcher empacotado usa `%LOCALAPPDATA%\VulnRadar` para o banco; os scripts de
 FastAPI, SQLAlchemy/Alembic, SQLite WAL, httpx, CVSS; React/TypeScript/Vite, Tailwind, TanStack Query, Recharts e componentes acessíveis próprios. Cada tarefa de nuvem usa o checkout existente; não crie worktree sem pedido explícito.
 
 Leia [arquitetura](docs/ARCHITECTURE.md), [auditoria V2](docs/V2_AUDIT.md), [estado verificável](docs/IMPLEMENTATION_STATUS.md) e [segurança](SECURITY.md). Há limitações explícitas para CPEs/runtimes, variantes de lockfiles, alcance de regras SAST, implantações remotas e serviços externos. Ausência de correspondência não comprova segurança.
+
+## Correções e evolução V3
+
+Veja [auditoria](docs/V3_AUDIT.md) e [entregas/limites V3](docs/V3_STATUS.md). A migração 0005 adiciona responsável, prazo, validade de risco e plano de correção. Relatórios agora filtram achados e cobertura, exportam JSON/CSV e permitem imprimir/salvar PDF pelo navegador. Fingerprints SAST toleram deslocamentos de linha e o SCA consulta OSV com concorrência limitada/cache. Trivy/Grype e filtros CPE não estão implementados nesta etapa.
