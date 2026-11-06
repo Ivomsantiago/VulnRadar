@@ -40,10 +40,15 @@ export type ScanResult = {
   warnings?: string[];
   coverage?: string;
   engine?: string;
+  image?: string;
+  digest?: string | null;
+  digest_type?: string;
+  request?: { image: string; engine: string };
   comparison?: {
     new: number;
     persistent: number;
     resolved: number;
+    reopened?: number;
     comparable: boolean;
   };
   sca?: ScanResult;
@@ -128,7 +133,7 @@ export type Finding = {
   project_id: number;
   project_name: string;
   scan_id: number;
-  kind: "sca" | "sast";
+  kind: "sca" | "sast" | "oci";
   vulnerability_id: string | null;
   package: string | null;
   ecosystem: string | null;
@@ -160,6 +165,8 @@ export type Component = {
   query_status: string;
 };
 export type Exposure = {
+  oci_scanned: boolean;
+  open_oci: number;
   sca_scanned: boolean;
   sast_scanned: boolean;
   projects: number;

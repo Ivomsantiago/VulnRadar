@@ -150,14 +150,14 @@ export function Overview() {
           {
             label: "Vulnerabilidades relevantes",
             value: e?.relevant_vulnerabilities,
-            to: "/priorities?kind=sca",
+            to: "/priorities",
             context: "Correspondências nos projetos",
           },
           {
             label: "Críticas e altas abertas",
             value: e?.open_high_critical,
             to: "/priorities?severity=HIGH_CRITICAL",
-            context: "Achados SCA + SAST em aberto",
+            context: "Achados SCA, SAST e OCI em aberto",
           },
           {
             label: "Exploração conhecida",
@@ -177,7 +177,7 @@ export function Overview() {
             label={k.label}
             value={
               waiting ||
-              (index !== 1 && !e?.sca_scanned) ||
+              (index !== 1 && !e?.sca_scanned && !e?.oci_scanned) ||
               (e?.state === "partial" && !k.value)
                 ? null
                 : (k.value ?? 0)
@@ -185,8 +185,12 @@ export function Overview() {
             context={k.context}
             to={k.to}
             state={
-              index !== 1 && e && !e.sca_scanned && e.state !== "no_projects"
-                ? "Aguardando SCA"
+              index !== 1 &&
+              e &&
+              !e.sca_scanned &&
+              !e.oci_scanned &&
+              e.state !== "no_projects"
+                ? "Aguardando SCA ou OCI"
                 : e?.state || "Carregando"
             }
             tone={index === 1 ? "attention" : "default"}
@@ -562,8 +566,7 @@ export function Overview() {
                         (
                           {
                             scan: "Análise finalizada",
-                            "vulnerability.new":
-                              "Nova vulnerabilidade divulgada",
+                            "vulnerability.new": "Primeira coleta de advisory",
                             "vulnerability.updated": "Advisory atualizado",
                             "finding.triage": "Decisão de remediação",
                           } as Record<string, string>

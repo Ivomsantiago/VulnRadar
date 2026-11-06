@@ -144,8 +144,19 @@ O launcher empacotado usa `%LOCALAPPDATA%\VulnRadar` para o banco; os scripts de
 
 FastAPI, SQLAlchemy/Alembic, SQLite WAL, httpx, CVSS; React/TypeScript/Vite, Tailwind, TanStack Query, Recharts e componentes acessíveis próprios. Cada tarefa de nuvem usa o checkout existente; não crie worktree sem pedido explícito.
 
-Leia [arquitetura](docs/ARCHITECTURE.md), [auditoria V2](docs/V2_AUDIT.md), [estado verificável](docs/IMPLEMENTATION_STATUS.md) e [segurança](SECURITY.md). Há limitações explícitas para CPEs/runtimes, variantes de lockfiles, alcance de regras SAST, implantações remotas e serviços externos. Ausência de correspondência não comprova segurança.
+Leia [arquitetura](docs/ARCHITECTURE.md), [auditoria V2](docs/V2_AUDIT.md), [estado verificável](docs/IMPLEMENTATION_STATUS.md) e [segurança](SECURITY.md). A cobertura de CPE/runtimes, lockfiles, SAST, OCI e fontes externas está documentada na V3. A instalação é local por padrão. Ausência de correspondência não comprova segurança.
 
-## Correções e evolução V3
+## Plataforma V3
 
-Veja [auditoria](docs/V3_AUDIT.md) e [entregas/limites V3](docs/V3_STATUS.md). A migração 0005 adiciona responsável, prazo, validade de risco e plano de correção. Relatórios agora filtram achados e cobertura, exportam JSON/CSV e permitem imprimir/salvar PDF pelo navegador. Fingerprints SAST toleram deslocamentos de linha e o SCA consulta OSV com concorrência limitada/cache. Trivy/Grype e filtros CPE não estão implementados nesta etapa.
+[Implementação V3](docs/V3_STATUS.md) · [Critérios e testes](docs/V3_ACCEPTANCE.md) · [Auditoria](docs/V3_AUDIT.md)
+
+Inclui oito jornadas de navegação, SCA/SAST/combinado, Trivy/Grype OCI opcionais, busca e monitoramento de produtos CPE/versões, remediação com responsável/SLA/validade e relatórios JSON/CSV/PDF. O histórico preserva estados passados e comparações identificam correções/recorrências. Migrações 0005/0006 são aditivas.
+
+Para habilitar OCI após a instalação:
+
+```bash
+.venv/bin/python scripts/install_engines.py all
+bash scripts/start.sh
+```
+
+O instalador verifica o SHA256 das releases oficiais. No Windows, use `.venv\Scripts\python.exe scripts/install_engines.py all` e `scripts/start.ps1`. Nenhuma imagem é executada; os scanners consultam o registro remoto e analisam suas camadas. Registros permitidos e timeout ficam em `.env.example`. Não é necessário Docker daemon.

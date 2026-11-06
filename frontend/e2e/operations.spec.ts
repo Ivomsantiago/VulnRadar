@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test";
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 test.use({ timezoneId: "America/Sao_Paulo" });
 test("repository wizard, SCA and local Semgrep, evidence, remediation and exports", async ({
   page,
@@ -180,4 +182,66 @@ test("remediation ownership and false-positive decision persist; reports filter 
   await page.emulateMedia({ media: "print" });
   const pdf = await page.pdf({ format: "A4", printBackground: true });
   expect(pdf.length).toBeGreaterThan(1000);
+});
+
+test("fix and reanalyse a disposable repository; resolved findings reopen on recurrence", async ({
+  page,
+}) => {
+  test.setTimeout(120000);
+  const project = (await (await page.request.get("/api/projects")).json()).find(
+    (p: { path: string }) => p.path.endsWith("/sample-app"),
+  );
+  expect(project.path).toMatch(/vulnradar-.*browser-/);
+  const source = join(project.path, "unsafe.py");
+  const manifest = join(project.path, "package-lock.json");
+  const originalSource = await readFile(source, "utf8");
+  const originalManifest = await readFile(manifest, "utf8");
+  const headers = { "X-VulnRadar-Client": "web" };
+  const findings = await (
+    await page.request.get(`/api/findings?project_id=${project.id}&status=`)
+  ).json();
+  for (const finding of findings.items) {
+    await page.request.patch(`/api/findings/${finding.id}/triage`, {
+      headers,
+      data: {
+        status: "planned",
+        reason: "Disposable fixture: validate repair and recurrence",
+      },
+    });
+  }
+  const reanalyse = async () => {
+    const response = await page.request.post(
+      `/api/projects/${project.id}/scans/combined`,
+      { headers },
+    );
+    expect(response.status()).toBe(202);
+    const scan = await response.json();
+    await page.goto(`/projects?scan=${scan.id}`);
+    const dialog = page.getByRole("dialog", { name: /Análise #/ });
+    await expect(dialog.getByText("Concluído", { exact: true })).toBeVisible({
+      timeout: 90000,
+    });
+    await dialog.getByRole("tab", { name: "Comparação", exact: true }).click();
+    await expect(dialog.getByText("Reabertos", { exact: true })).toBeVisible();
+    return await (await page.request.get(`/api/scans/${scan.id}`)).json();
+  };
+  try {
+    await writeFile(
+      source,
+      'import subprocess\nsubprocess.run(["fixture-never-executed"], shell=False)\n',
+    );
+    const lock = JSON.parse(originalManifest);
+    lock.packages["node_modules/lodash"].version = "99.0.0";
+    await writeFile(manifest, JSON.stringify(lock));
+    const repaired = await reanalyse();
+    expect(repaired.result.comparison.resolved).toBe(2);
+    await writeFile(source, originalSource);
+    await writeFile(manifest, originalManifest);
+    const recurrent = await reanalyse();
+    expect(recurrent.result.comparison.reopened).toBe(2);
+    expect(recurrent.result.comparison.new).toBe(0);
+  } finally {
+    await writeFile(source, originalSource);
+    await writeFile(manifest, originalManifest);
+  }
 });

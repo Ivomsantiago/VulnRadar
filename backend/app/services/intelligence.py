@@ -10,7 +10,7 @@ from cvss import CVSS2, CVSS3, CVSS4
 from cvss.exceptions import CVSSError
 from sqlalchemy import select, delete, update
 from ..config import settings
-from ..db import Activity, Advisory, Alias, Source, Vulnerability, AffectedPackage, Finding, SyncRun
+from ..db import Activity, Advisory, Alias, Source, Vulnerability, AffectedPackage, Finding, SyncRun, utc_datetime
 from .evidence import evidence
 
 URLS = {
@@ -54,7 +54,7 @@ def severity_name(value):
 
 
 def normalize(source, raw):
-    if source == "osv":
+    if source in {"osv", "trivy", "grype"}:
         scores = raw.get("severity", [])
         score, derived_severity = None, "UNKNOWN"
         for metric in sorted(scores, key=lambda value: {"CVSS_V4": 4, "CVSS_V3": 3, "CVSS_V2": 2}.get(value.get("type"), 0), reverse=True):
@@ -119,7 +119,7 @@ def normalize(source, raw):
     )
 
 
-def upsert(session, source, raw):
+def upsert(session, source, raw, context="collection"):
     item = normalize(source, raw)
     identifiers = sorted(set([item["id"], *item["aliases"]]))
     matches = list(session.scalars(select(Alias).where(Alias.id.in_(identifiers))))
@@ -159,6 +159,18 @@ def upsert(session, source, raw):
     else:
         advisory.payload = raw
     if changed:
+        event_type = "advisory_update"
+        reason = "Advisory atualizado pela fonte"
+        if new:
+            event_type = "local_discovery" if context != "collection" else "first_collection"
+            reason = "Advisory identificado em análise/consulta local" if context != "collection" else "Advisory coletado pela primeira vez"
+            if context == "collection" and item.get("published"):
+                try:
+                    published_at = utc_datetime(datetime.fromisoformat(item["published"]))
+                    if datetime.now(timezone.utc) - timedelta(hours=24) <= published_at <= datetime.now(timezone.utc):
+                        event_type, reason = "publication", "Nova publicação informada pela fonte"
+                except (ValueError, TypeError):
+                    pass
         if previous:
             old_fixes = {v for package in evidence(source, previous)["packages"] for v in package["fixed"]}
             new_fixes = {v for package in evidence(source, raw)["packages"] for v in package["fixed"]}
@@ -170,6 +182,9 @@ def upsert(session, source, raw):
                 )
         session.flush()
         session.execute(delete(AffectedPackage).where(AffectedPackage.advisory_id == key))
+        if source == "nvd":
+            from .products import index_products
+            index_products(session, key, raw)
         for package in evidence(source, raw)["packages"]:
             session.add(AffectedPackage(advisory_id=key, ecosystem=package["ecosystem"], package=package["package"], constraints=package))
         vulnerability.updated_at = datetime.now(timezone.utc)
@@ -185,13 +200,16 @@ def upsert(session, source, raw):
                 subject=canonical,
                 data={
                     "source": source,
+                    "event_type": event_type,
+                    "reason": reason,
+                    "published": item.get("published"),
                     "previous": {key: normalize(source, previous).get(key) for key in ("severity", "cvss", "modified")} if previous else None,
                     "current": {key: item.get(key) for key in ("severity", "cvss", "modified")},
                 },
             )
         )
-        if new and (vulnerability.severity in {"CRITICAL", "HIGH"}):
-            session.add(Activity(kind="alert", subject=canonical, data={"reason": "Nova vulnerabilidade alta ou crítica", "source": source}))
+        if new and context == "collection" and (vulnerability.severity in {"CRITICAL", "HIGH"}):
+            session.add(Activity(kind="alert", subject=canonical, data={"reason": reason + " (alta/crítica)", "source": source, "event_type": event_type}))
     vulnerability.severity = severity_name(vulnerability.severity)
     if vulnerability.cvss is None and item["cvss"] is not None:
         vulnerability.cvss = item["cvss"]
@@ -200,6 +218,64 @@ def upsert(session, source, raw):
 
 
 _OSV_CACHE = {}
+_OSV_DETAIL_CACHE = {}
+
+
+async def query_osv_batch(keys):
+    """OSV batch matches IDs; hydrate complete advisories once per unique ID.
+
+    Missing/failed/paginated entries are omitted so callers retry with the fully
+    paginated single-package query instead of claiming complete coverage.
+    """
+    from urllib.parse import quote
+    results, pending = {}, []
+    for key in keys:
+        cached = _OSV_CACHE.get(key)
+        if cached and time.monotonic() - cached[0] < 300:
+            results[key] = copy.deepcopy(cached[1])
+        else:
+            pending.append(key)
+    semaphore = asyncio.Semaphore(4)
+    async with httpx.AsyncClient(timeout=30) as client:
+        for start in range(0, len(pending), 100):
+            group = pending[start:start + 100]
+            queries = [{"package": {"ecosystem": eco, "name": package}, "version": version} for eco, package, version in group]
+            body = (await request(client, "POST", "https://api.osv.dev/v1/querybatch", json={"queries": queries})).json()
+            rows = body.get("results")
+            if not isinstance(rows, list) or len(rows) != len(group):
+                raise ValueError("OSV batch incompleto")
+            details = {}
+
+            async def hydrate(identifier):
+                async with semaphore:
+                    cached = _OSV_DETAIL_CACHE.get(identifier)
+                    if cached and time.monotonic() - cached[0] < 300:
+                        details[identifier] = copy.deepcopy(cached[1])
+                        return
+                    try:
+                        raw = (await request(client, "GET", "https://api.osv.dev/v1/vulns/" + quote(identifier, safe=""))).json()
+                        if raw.get("id") != identifier:
+                            return
+                        details[identifier] = raw
+                        if len(_OSV_DETAIL_CACHE) >= 1024:
+                            _OSV_DETAIL_CACHE.pop(next(iter(_OSV_DETAIL_CACHE)))
+                        _OSV_DETAIL_CACHE[identifier] = (time.monotonic(), copy.deepcopy(raw))
+                    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+                        return
+            identifiers = {vuln["id"] for row in rows if not row.get("next_page_token") for vuln in row.get("vulns", [])}
+            identifiers = list(identifiers)
+            for index in range(0, len(identifiers), 40):
+                await asyncio.gather(*(hydrate(value) for value in identifiers[index:index + 40]))
+            for key, row in zip(group, rows):
+                ids = [vuln["id"] for vuln in row.get("vulns", [])]
+                if row.get("next_page_token") or not all(identifier in details for identifier in ids):
+                    continue
+                values = [details[identifier] for identifier in ids]
+                results[key] = copy.deepcopy(values)
+                if len(_OSV_CACHE) >= 256:
+                    _OSV_CACHE.pop(next(iter(_OSV_CACHE)))
+                _OSV_CACHE[key] = (time.monotonic(), copy.deepcopy(values))
+    return results
 
 
 async def query_osv(ecosystem, package, version):
@@ -253,6 +329,11 @@ async def sync_source(session, source):
         async with httpx.AsyncClient(timeout=45, headers={"User-Agent": "VulnRadar/0.1"}) as client:
             if source in {"nvd", "github"}:
                 start = state.checkpoint or (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+                if source == "nvd":
+                    # NVD limits modification windows; paginate one bounded window
+                    # per sync so long-offline installations can catch up safely.
+                    window_end = utc_datetime(datetime.fromisoformat(start)) + timedelta(days=119)
+                    checkpoint = min(datetime.fromisoformat(checkpoint), window_end).isoformat()
                 page = 0
                 while True:
                     if source == "nvd":
@@ -295,6 +376,7 @@ async def sync_source(session, source):
                         session.add(Alias(id=identifier, vulnerability_id=identifier))
                     if not vulnerability.kev:
                         session.add(Activity(kind="alert", subject=vulnerability.id, data={"reason": "Inclusão no CISA KEV"}))
+                        session.add(Activity(kind="exploitation.updated", subject=vulnerability.id, data={"source": "kev", "from": False, "to": True, "date_added": row.get("dateAdded")}))
                     vulnerability.kev = True
                     key = f"kev:{identifier}"
                     advisory = session.get(Advisory, key)
@@ -321,6 +403,11 @@ async def sync_source(session, source):
                         count += 1
             else:
                 raise ValueError("Fonte sem coleta global; OSV é consultado por pacote e versão")
+        if source == "nvd":
+            from ..db import ProductWatch
+            from .products import check_product_watch
+            for watch in session.scalars(select(ProductWatch)):
+                check_product_watch(session, watch)
         state.status, state.error, state.checkpoint, state.count = "success", None, checkpoint, count
         session.add(Activity(kind="sync", subject=source, data={"status": "success", "count": count}))
         session.commit()

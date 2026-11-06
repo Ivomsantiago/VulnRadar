@@ -1,6 +1,7 @@
 """V2 operational API. Exposure always originates in observed scan findings."""
 
 from datetime import timedelta
+from typing import Literal
 import shutil
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -32,6 +33,7 @@ from .services.findings import CLOSED
 from .services.monitoring import prioritize, get_epss_threshold
 from .services.projects import browse, inspect_project
 from .services.evidence import evidence as source_evidence
+from .services.history import record_state
 
 router = APIRouter(prefix="/api", tags=["Operations V2"])
 
@@ -80,6 +82,7 @@ def findings(
     kev: bool | None = None,
     priority: str | None = None,
     new_hours: int | None = Query(None, ge=1, le=2160),
+    sort: Literal["priority", "severity", "newest", "due_at", "owner"] = "priority",
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     session: DBSession = Depends(get_session),
@@ -110,6 +113,9 @@ def findings(
         Finding.last_seen.desc(),
         Finding.id.desc(),
     )
+    if sort != "priority":
+        column = {"newest": Finding.first_seen.desc(), "severity": case((Finding.severity == "CRITICAL", 4), (Finding.severity == "HIGH", 3), (Finding.severity == "MEDIUM", 2), else_=1).desc(), "due_at": Finding.due_at.asc().nullslast(), "owner": Finding.owner.asc().nullslast()}[sort]
+        stmt = stmt.order_by(None).order_by(column, Finding.id.desc())
     rows = session.execute(stmt.offset((page - 1) * page_size).limit(page_size)).all()
     return {
         "items": [finding_row(*row, epss_threshold=threshold) for row in rows],
@@ -126,7 +132,7 @@ def finding_detail(identifier: int, session: DBSession = Depends(get_session)):
     if row is None:
         raise HTTPException(404, "Achado não encontrado")
     return {
-        "source_evidence": source_evidence("osv", row[0].evidence.get("advisory", {})) if row[0].kind == "sca" else None,
+        "source_evidence": source_evidence(row[0].evidence.get("source", "osv"), row[0].evidence.get("advisory", {})) if row[0].kind in {"sca", "oci"} else None,
         **finding_row(*row, epss_threshold=get_epss_threshold(session)),
         "history": list(session.scalars(select(Activity).where(Activity.subject == f"finding:{identifier}").order_by(Activity.id.desc()).limit(100))),
         "observations": list(session.scalars(select(FindingObservation).where(FindingObservation.finding_id == identifier).order_by(FindingObservation.id.desc()).limit(100))),
@@ -141,7 +147,8 @@ def finding_triage(identifier: int, body: FindingTriageInput, session: DBSession
     session.add(
         Activity(kind="finding.triage", subject=f"finding:{identifier}", data={"from": finding.status, "to": body.status, "reason": body.reason, "project_id": finding.project_id})
     )
-    if body.status == "accepted" and (body.risk_expires_at is None or utc_datetime(body.risk_expires_at) <= now()):
+    expiry = body.risk_expires_at if "risk_expires_at" in body.model_fields_set else finding.risk_expires_at
+    if body.status == "accepted" and (expiry is None or utc_datetime(expiry) <= now()):
         raise HTTPException(422, "Aceite de risco exige validade futura")
     changes = {}
     for field in ("owner", "due_at", "risk_expires_at", "remediation_plan"):
@@ -150,14 +157,17 @@ def finding_triage(identifier: int, body: FindingTriageInput, session: DBSession
             setattr(finding, field, getattr(body, field))
     if changes:
         session.add(Activity(kind="finding.assignment", subject=f"finding:{identifier}", data={"changes": changes, "reason": body.reason}))
+    changed_status = finding.status != body.status
     finding.status = body.status
+    record_state(session, finding, "resolved" if body.status == "resolved" and changed_status else "triage")
     session.commit()
     return finding
 
 
 def latest_inventory_query():
     latest = select(func.max(Scan.id)).where(Scan.kind.in_(["sca", "combined"]), Scan.status.in_(["completed", "partial"])).group_by(Scan.project_id)
-    return select(InventoryComponent, Project.name).join(Project, InventoryComponent.project_id == Project.id).where(InventoryComponent.scan_id.in_(latest))
+    images = select(func.max(Scan.id)).where(Scan.kind == "oci", Scan.status.in_(["completed", "partial"])).group_by(Scan.project_id, Scan.result["image"].as_string(), Scan.result["engine"].as_string())
+    return select(InventoryComponent, Project.name).join(Project, InventoryComponent.project_id == Project.id).where(or_(InventoryComponent.scan_id.in_(latest), InventoryComponent.scan_id.in_(images)))
 
 
 @router.get("/inventory")
@@ -165,6 +175,8 @@ def inventory(
     q: str = Query("", max_length=200),
     project_id: int | None = None,
     ecosystem: str | None = None,
+    direct: bool | None = None,
+    sort: Literal["package", "ecosystem", "version"] = "package",
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=100),
     session: DBSession = Depends(get_session),
@@ -176,11 +188,13 @@ def inventory(
         stmt = stmt.where(InventoryComponent.project_id == project_id)
     if ecosystem:
         stmt = stmt.where(InventoryComponent.ecosystem == ecosystem)
+    if direct is not None:
+        stmt = stmt.where(InventoryComponent.direct == direct)
     total = session.scalar(select(func.count()).select_from(stmt.subquery()))
     return {
         "items": [
             {**jsonable_encoder(component), "project_name": name}
-            for component, name in session.execute(stmt.order_by(InventoryComponent.package, InventoryComponent.id).offset((page - 1) * page_size).limit(page_size))
+            for component, name in session.execute(stmt.order_by(getattr(InventoryComponent, sort), InventoryComponent.id).offset((page - 1) * page_size).limit(page_size))
         ],
         "total": total,
         "page_size": page_size,
@@ -195,7 +209,7 @@ def exposure(session: DBSession = Depends(get_session)):
     def count(*conditions):
         return session.scalar(select(func.count()).select_from(Finding).where(*conditions))
 
-    relevant = session.scalar(select(func.count(func.distinct(Finding.vulnerability_id))).where(open_filter, Finding.kind == "sca"))
+    relevant = session.scalar(select(func.count(func.distinct(Finding.vulnerability_id))).where(open_filter, Finding.kind.in_(["sca", "oci"])))
     kev = session.scalar(
         select(func.count(func.distinct(Finding.vulnerability_id)))
         .join(Vulnerability, Finding.vulnerability_id == Vulnerability.id)
@@ -207,14 +221,16 @@ def exposure(session: DBSession = Depends(get_session)):
         "projects": session.scalar(select(func.count()).select_from(Project)),
         "sca_scanned": session.scalar(select(Scan.id).where(Scan.kind.in_(["sca", "combined"]), Scan.indexed.is_(True)).limit(1)) is not None,
         "sast_scanned": session.scalar(select(Scan.id).where(Scan.kind.in_(["sast", "combined"]), Scan.indexed.is_(True)).limit(1)) is not None,
+        "oci_scanned": session.scalar(select(Scan.id).where(Scan.kind == "oci", Scan.indexed.is_(True)).limit(1)) is not None,
         "relevant_vulnerabilities": relevant,
         "open_high_critical": count(open_filter, Finding.severity.in_(["CRITICAL", "HIGH"])),
         "kev": kev,
         "new_24h": session.scalar(
-            select(func.count(func.distinct(Finding.vulnerability_id))).where(open_filter, Finding.kind == "sca", Finding.first_seen >= now() - timedelta(hours=24))
+            select(func.count(func.distinct(Finding.vulnerability_id))).where(open_filter, Finding.kind.in_(["sca", "oci"]), Finding.first_seen >= now() - timedelta(hours=24))
         ),
         "open_sca": count(open_filter, Finding.kind == "sca"),
         "open_sast": count(open_filter, Finding.kind == "sast"),
+        "open_oci": count(open_filter, Finding.kind == "oci"),
         "resolved": count(Finding.status == "resolved"),
         "scope": "Achados persistidos dos projetos monitorados; correspondência de versão não comprova exploração",
         "state": "no_projects"
@@ -309,6 +325,9 @@ async def engines():
     return {
         "osv": osv,
         "semgrep": bool(shutil.which("semgrep")),
+        "trivy": bool(shutil.which("trivy")),
+        "grype": bool(shutil.which("grype")),
+        "oci_registries": settings.oci_registries,
         "rules": len(list(settings.semgrep_rules.glob("*.y*ml"))),
         "scope": "Conectividade HTTP; disponibilidade de uma consulta específica é verificada durante o scan",
     }

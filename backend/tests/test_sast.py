@@ -26,3 +26,9 @@ async def test_real_semgrep_local_rules(tmp_path, monkeypatch):
     shifted = next(item for item in moved["findings"] if item["check_id"] == finding["check_id"])
     assert shifted["code_digest"] == original
     assert shifted["start"]["line"] == finding["start"]["line"] + 3
+    # A repository cannot make an existing issue look fixed using ignore controls.
+    (tmp_path / ".semgrepignore").write_text("*.py\n")
+    source.write_text(source.read_text().replace('shell=True)', 'shell=True)  # nosemgrep'))
+    ignored = await sast(tmp_path)
+    assert any(item["check_id"] == finding["check_id"] for item in ignored["findings"])
+    assert ignored["engine_version"]

@@ -52,4 +52,4 @@ O ambiente publicado pelo usuário não foi alterado ou republicado nesta etapa.
 
 ## Evolução V3
 
-Consulte PRODUCT_SPEC_V3.md, V3_AUDIT.md e V3_STATUS.md. Inclui correções de identidade SAST, precisão/performance SCA, remediação com responsável/prazo/validade e relatórios filtrados/CSV/JSON/print PDF. A especificação V3 completa continua com pendências explícitas nesse documento; não declarar cobertura OCI, CPE ou reconstrução histórica ainda não implementada.
+O estado atual está em [V3_STATUS.md](V3_STATUS.md), com evidências em [V3_ACCEPTANCE.md](V3_ACCEPTANCE.md). A V3 implementa OCI Trivy/Grype, CPE/runtimes, oito jornadas, OSV batch, histórico temporal e PDF servidor, além das correções e da remediação. As limitações e contagens V2 acima são registro histórico; para a cobertura atual, prevalecem esses documentos V3.

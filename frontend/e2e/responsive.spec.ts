@@ -10,6 +10,7 @@ const routes = [
   ["/sca", "sca"],
   ["/sast", "sast"],
   ["/inventory", "inventory"],
+  ["/oci", "oci"],
   ["/watchlist", "watchlist"],
   ["/alerts", "alerts"],
   ["/triage", "triage"],
@@ -59,7 +60,9 @@ for (const width of [1920, 1440, 1366, 1024, 768, 390])
       await expect(
         page.getByRole("navigation", { name: "Navegação principal" }),
       ).toBeVisible();
-      await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+      await page
+        .getByRole("link", { name: "Visão geral", exact: true })
+        .click();
       await expect(page.locator(".nav-backdrop")).toHaveCount(0);
     }
     await page.goto("/feed");

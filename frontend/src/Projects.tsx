@@ -406,7 +406,8 @@ export function ScanDetails({ id, close }: { id: number; close: () => void }) {
   });
   const active = data && ["pending", "running"].includes(data.status);
   const sca =
-    data?.result.sca || (data?.kind === "sca" ? data.result : undefined);
+    data?.result.sca ||
+    (["sca", "oci"].includes(data?.kind || "") ? data?.result : undefined);
   const sast =
     data?.result.sast || (data?.kind === "sast" ? data.result : undefined);
   const localFindings = observations.data?.items || [];
@@ -460,6 +461,25 @@ export function ScanDetails({ id, close }: { id: number; close: () => void }) {
                     label: "Resumo",
                     content: (
                       <>
+                        {data.result.image && (
+                          <div className="notice">
+                            <b>{data.result.image}</b>
+                            <p className="mono">
+                              Digest:{" "}
+                              {data.result.digest ||
+                                "Não informado pelo mecanismo"}
+                            </p>
+                            <p>
+                              Tipo do digest:{" "}
+                              {data.result.digest_type === "repository"
+                                ? "referência do repositório"
+                                : data.result.digest_type === "manifest"
+                                  ? "manifesto da plataforma"
+                                  : "configuração da imagem"}
+                            </p>
+                            <p>Fonte: {data.result.engine}</p>
+                          </div>
+                        )}
                         <div className="result-kpis">
                           <div>
                             <small>Componentes</small>
@@ -468,7 +488,9 @@ export function ScanDetails({ id, close }: { id: number; close: () => void }) {
                             </strong>
                           </div>
                           <div>
-                            <small>Achados SCA</small>
+                            <small>
+                              Achados {data.kind === "oci" ? "OCI" : "SCA"}
+                            </small>
                             <strong>{sca?.findings?.length ?? "—"}</strong>
                           </div>
                           <div>
@@ -535,11 +557,18 @@ export function ScanDetails({ id, close }: { id: number; close: () => void }) {
                   },
                   {
                     id: "sca",
-                    label: "SCA",
-                    count: localFindings.filter((f) => f.kind === "sca").length,
-                    content: localFindings.some((f) => f.kind === "sca") ? (
+                    label: data.kind === "oci" ? "OCI" : "SCA",
+                    count: localFindings.filter(
+                      (f) => f.kind === (data.kind === "oci" ? "oci" : "sca"),
+                    ).length,
+                    content: localFindings.some(
+                      (f) => f.kind === (data.kind === "oci" ? "oci" : "sca"),
+                    ) ? (
                       <FindingsTable
-                        items={localFindings.filter((f) => f.kind === "sca")}
+                        items={localFindings.filter(
+                          (f) =>
+                            f.kind === (data.kind === "oci" ? "oci" : "sca"),
+                        )}
                         open={setFinding}
                       />
                     ) : (
@@ -629,6 +658,12 @@ export function ScanDetails({ id, close }: { id: number; close: () => void }) {
                                 </strong>
                               </div>
                               <div>
+                                <small>Reabertos</small>
+                                <strong>
+                                  {data.result.comparison.reopened ?? 0}
+                                </strong>
+                              </div>
+                              <div>
                                 <small>Resolvidos</small>
                                 <strong>
                                   {data.result.comparison.resolved}
@@ -675,6 +710,7 @@ export function Projects() {
   const [creating, setCreating] = useState(false);
   const [chosen, setChosen] = useState<Project | undefined>();
   const selected = Number(params.get("scan")) || null;
+  const projectFilter = Number(params.get("project")) || null;
   const openScan = (id: number) => {
     const n = new URLSearchParams(params);
     n.set("scan", String(id));
@@ -694,6 +730,12 @@ export function Projects() {
         }
       />
       <ErrorBox error={projects.error || scans.error} />
+      {projectFilter && (
+        <div className="notice">
+          Projeto selecionado #{projectFilter} ·{" "}
+          <Link to="/projects">Ver todos os projetos</Link>
+        </div>
+      )}
       <div className="section-title">
         <div>
           <FolderGit2 size={17} />
@@ -708,26 +750,31 @@ export function Projects() {
         <Skeleton />
       ) : projects.data?.length ? (
         <div className="project-grid">
-          {projects.data.map((project) => (
-            <section className="panel project-card" key={project.id}>
-              <div className="project-card-top">
-                <span className="project-icon">
-                  <FolderGit2 size={23} />
-                </span>
-                <Badge value="Local" />
-              </div>
-              <h2>{project.name}</h2>
-              <p className="project-path mono">{project.path}</p>
-              <div className="project-card-meta">
-                <Link to={"/priorities?project_id=" + project.id}>
-                  Investigar achados <ArrowRight size={13} />
-                </Link>
-              </div>
-              <button className="secondary" onClick={() => setChosen(project)}>
-                Preparar análise <ArrowRight size={14} />
-              </button>
-            </section>
-          ))}
+          {projects.data
+            .filter((project) => !projectFilter || project.id === projectFilter)
+            .map((project) => (
+              <section className="panel project-card" key={project.id}>
+                <div className="project-card-top">
+                  <span className="project-icon">
+                    <FolderGit2 size={23} />
+                  </span>
+                  <Badge value="Local" />
+                </div>
+                <h2>{project.name}</h2>
+                <p className="project-path mono">{project.path}</p>
+                <div className="project-card-meta">
+                  <Link to={"/priorities?project_id=" + project.id}>
+                    Investigar achados <ArrowRight size={13} />
+                  </Link>
+                </div>
+                <button
+                  className="secondary"
+                  onClick={() => setChosen(project)}
+                >
+                  Preparar análise <ArrowRight size={14} />
+                </button>
+              </section>
+            ))}
         </div>
       ) : (
         <section className="panel getting-started">
@@ -778,34 +825,39 @@ export function Projects() {
                 </tr>
               </thead>
               <tbody>
-                {scans.data.map((scan) => (
-                  <tr key={scan.id}>
-                    <td className="mono">#{scan.id}</td>
-                    <td>
-                      {projects.data?.find((p) => p.id === scan.project_id)
-                        ?.name || "#" + scan.project_id}
-                    </td>
-                    <td>
-                      {scan.kind === "combined"
-                        ? "SCA + SAST"
-                        : scan.kind.toUpperCase()}
-                    </td>
-                    <td>
-                      <span className="muted">
-                        {statusLabels[scan.stage || ""] || scan.stage || "—"}
-                      </span>
-                    </td>
-                    <td>
-                      <Badge value={scan.status} />
-                    </td>
-                    <td>{formatDate(scan.created_at)}</td>
-                    <td>
-                      <button onClick={() => openScan(scan.id)}>
-                        Investigar <ArrowRight size={13} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {scans.data
+                  .filter(
+                    (scan) =>
+                      !projectFilter || scan.project_id === projectFilter,
+                  )
+                  .map((scan) => (
+                    <tr key={scan.id}>
+                      <td className="mono">#{scan.id}</td>
+                      <td>
+                        {projects.data?.find((p) => p.id === scan.project_id)
+                          ?.name || "#" + scan.project_id}
+                      </td>
+                      <td>
+                        {scan.kind === "combined"
+                          ? "SCA + SAST"
+                          : scan.kind.toUpperCase()}
+                      </td>
+                      <td>
+                        <span className="muted">
+                          {statusLabels[scan.stage || ""] || scan.stage || "—"}
+                        </span>
+                      </td>
+                      <td>
+                        <Badge value={scan.status} />
+                      </td>
+                      <td>{formatDate(scan.created_at)}</td>
+                      <td>
+                        <button onClick={() => openScan(scan.id)}>
+                          Investigar <ArrowRight size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>

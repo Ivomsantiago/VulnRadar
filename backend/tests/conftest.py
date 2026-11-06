@@ -8,6 +8,12 @@ from sqlalchemy.pool import StaticPool
 from fastapi.testclient import TestClient
 from app.db import Base, get_session
 from app.main import app
+from app.config import settings
+
+
+@pytest.fixture(autouse=True)
+def isolated_osv_queries(monkeypatch):
+    monkeypatch.setattr(settings, "osv_batch", False)
 
 
 @pytest.fixture
