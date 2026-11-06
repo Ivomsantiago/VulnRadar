@@ -24,6 +24,33 @@ URLS = {
 KEV_MIRROR = "https://raw.githubusercontent.com/cisagov/kev-data/main/known_exploited_vulnerabilities.json"
 
 
+def github_timestamp(value):
+    return utc_datetime(datetime.fromisoformat(value) if isinstance(value, str) else value).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def github_next_page(response, seen):
+    """Global advisories paginate with an opaque `after` cursor, not page=N."""
+    from urllib.parse import urlsplit, parse_qs
+    link = response.links.get("next")
+    if not link:
+        return None
+    parsed = urlsplit(link["url"])
+    if parsed.hostname not in (None, "api.github.com") or parsed.path not in ("", "/advisories"):
+        raise ValueError("Link de paginação GitHub fora do endpoint autorizado")
+    query = parse_qs(parsed.query)
+    if query.get("after") and len(query["after"][0]) <= 4096:
+        cursor = {"after": query["after"][0]}
+    elif query.get("page") and query["page"][0].isdigit():
+        cursor = {"page": int(query["page"][0])}
+    else:
+        raise ValueError("GitHub retornou paginação sem cursor reconhecido")
+    key = tuple(cursor.items())
+    if key in seen:
+        raise ValueError("GitHub retornou cursor repetido; consulta incompleta")
+    seen.add(key)
+    return cursor
+
+
 async def request(client, method, url, **kwargs):
     for attempt in range(4):
         response = await client.request(method, url, **kwargs)
@@ -51,6 +78,34 @@ def severity_name(value):
     normalized = str(value or "UNKNOWN").upper()
     normalized = {"MODERATE": "MEDIUM", "IMPORTANT": "HIGH", "NEGLIGIBLE": "LOW"}.get(normalized, normalized)
     return normalized if normalized in {"CRITICAL", "HIGH", "MEDIUM", "LOW"} else "UNKNOWN"
+
+
+def refresh_assessment(session, vulnerability):
+    """Keep a source-owned severity/CVSS pair; unrated mirrors cannot hide known criticals."""
+    ratings = []
+    for advisory in session.scalars(select(Advisory).where(Advisory.vulnerability_id == vulnerability.id, Advisory.source.in_(["nvd", "github", "osv", "trivy", "grype"]))):
+        if advisory.payload.get("withdrawn") or advisory.payload.get("withdrawn_at"):
+            continue
+        rating = normalize(advisory.source, advisory.payload)
+        ratings.append((advisory.source, rating))
+    rank = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "UNKNOWN": 0}
+    if ratings:
+        source, chosen = max(ratings, key=lambda item: (rank.get(item[1]["severity"], 0), item[1].get("cvss") if item[1].get("cvss") is not None else -1))
+        vulnerability.severity, vulnerability.cvss = chosen["severity"], chosen.get("cvss")
+        return source
+    vulnerability.severity, vulnerability.cvss = "UNKNOWN", None
+    return None
+
+
+def repair_unrated_assessments(session):
+    # Repair the old cached combination UNKNOWN + a known numerical CVSS. Raw
+    # advisories and analyst decisions remain unchanged; evidence supplies the rating.
+    for vulnerability in session.scalars(select(Vulnerability).where(Vulnerability.severity == "UNKNOWN", Vulnerability.cvss.is_not(None))):
+        previous = {"severity": vulnerability.severity, "cvss": vulnerability.cvss}
+        source = refresh_assessment(session, vulnerability)
+        if vulnerability.severity != previous["severity"]:
+            session.add(Activity(kind="vulnerability.reconciled", subject=vulnerability.id, data={"source": source, "previous": previous, "current": {"severity": vulnerability.severity, "cvss": vulnerability.cvss}, "reason": "Classificação conhecida preservada a partir da evidência original"}))
+    session.commit()
 
 
 def normalize(source, raw):
@@ -211,8 +266,12 @@ def upsert(session, source, raw, context="collection"):
         if new and context == "collection" and (vulnerability.severity in {"CRITICAL", "HIGH"}):
             session.add(Activity(kind="alert", subject=canonical, data={"reason": reason + " (alta/crítica)", "source": source, "event_type": event_type}))
     vulnerability.severity = severity_name(vulnerability.severity)
-    if vulnerability.cvss is None and item["cvss"] is not None:
-        vulnerability.cvss = item["cvss"]
+    if changed or (vulnerability.severity == "UNKNOWN" and vulnerability.cvss is not None):
+        session.flush()
+        refresh_assessment(session, vulnerability)
+    # KEV can create the canonical record before a dated NVD/GitHub advisory.
+    if vulnerability.published is None and item.get("published"):
+        vulnerability.published = item["published"]
     session.flush()
     return vulnerability
 
@@ -335,12 +394,13 @@ async def sync_source(session, source):
                     window_end = utc_datetime(datetime.fromisoformat(start)) + timedelta(days=119)
                     checkpoint = min(datetime.fromisoformat(checkpoint), window_end).isoformat()
                 page = 0
+                github_cursor, seen_github_cursors = {}, set()
                 while True:
                     if source == "nvd":
                         params = {"lastModStartDate": start, "lastModEndDate": checkpoint, "startIndex": page * 2000, "resultsPerPage": 2000}
                         headers = {"apiKey": settings.nvd_api_key} if settings.nvd_api_key else {}
                     else:
-                        params = {"modified": f">={start}", "per_page": 100, "page": page + 1}
+                        params = {"modified": f">={github_timestamp(start)}", "per_page": 100, **github_cursor}
                         headers = {"Authorization": f"Bearer {settings.github_token}"} if settings.github_token else {}
                     response = await request(client, "GET", URLS[source], params=params, headers=headers)
                     body = response.json()
@@ -359,7 +419,9 @@ async def sync_source(session, source):
                     session.commit()  # Retain successful pages if a later request fails.
                     committed = (count, new_count, updated_count, pages)
                     page += 1
-                    if (source == "nvd" and page * 2000 >= body.get("totalResults", 0)) or (source == "github" and 'rel="next"' not in response.headers.get("Link", "")):
+                    if source == "github":
+                        github_cursor = github_next_page(response, seen_github_cursors)
+                    if (source == "nvd" and page * 2000 >= body.get("totalResults", 0)) or (source == "github" and github_cursor is None):
                         break
                     await asyncio.sleep(0.2 if source == "github" or settings.nvd_api_key else 6)
             elif source == "kev":

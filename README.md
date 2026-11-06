@@ -146,6 +146,14 @@ FastAPI, SQLAlchemy/Alembic, SQLite WAL, httpx, CVSS; React/TypeScript/Vite, Tai
 
 Leia [arquitetura](docs/ARCHITECTURE.md), [auditoria V2](docs/V2_AUDIT.md), [estado verificável](docs/IMPLEMENTATION_STATUS.md) e [segurança](SECURITY.md). A cobertura de CPE/runtimes, lockfiles, SAST, OCI e fontes externas está documentada na V3. A instalação é local por padrão. Ausência de correspondência não comprova segurança.
 
+## Radar de publicações por período
+
+A página inicial permite escolher **24h, 7 dias, 1 mês (30 dias), 3 meses (90 dias)** ou datas personalizadas e clicar em **Buscar vulnerabilidades**. O coletor consulta NVD e GitHub para a janela escolhida, mostra andamento e preserva os resultados. KEV/EPSS podem enriquecer o conjunto.
+
+Críticas e altas aparecem primeiro; é possível pesquisar, filtrar, selecionar publicações para investigação e exportar o conjunto filtrado. A exposição dos seus repositórios continua separada em **Aplicações → Exposição das aplicações**.
+
+[Fluxo, cobertura e validação do radar](docs/PUBLICATION_RADAR.md).
+
 ## Plataforma V3
 
 [Implementação V3](docs/V3_STATUS.md) · [Critérios e testes](docs/V3_ACCEPTANCE.md) · [Auditoria](docs/V3_AUDIT.md)

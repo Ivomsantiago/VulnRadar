@@ -5,6 +5,13 @@ test("navigation, advanced filters, favorites, watchlist persistence and univers
 }) => {
   await page.goto("/");
   await expect(
+    page.getByRole("heading", {
+      name: "Radar de vulnerabilidades",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.goto("/exposure");
+  await expect(
     page.getByRole("heading", { name: "Visão geral", exact: true }),
   ).toBeVisible();
   await expect(page.getByText("Eventos conectados")).toBeVisible();

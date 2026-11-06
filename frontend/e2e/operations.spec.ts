@@ -66,7 +66,7 @@ test("repository wizard, SCA and local Semgrep, evidence, remediation and export
       .getByRole("button", { name: /python-subprocess-shell/ }),
   ).toBeVisible();
   await page.screenshot({
-    path: "../docs/screenshots/v3/1440/scan-results.png",
+    path: "../docs/screenshots/radar/1440/scan-results.png",
     fullPage: true,
   });
   await page
@@ -80,7 +80,7 @@ test("repository wizard, SCA and local Semgrep, evidence, remediation and export
     finding.getByText("Evidência preservada da ferramenta"),
   ).toBeVisible();
   await page.screenshot({
-    path: "../docs/screenshots/v3/1440/finding-evidence.png",
+    path: "../docs/screenshots/radar/1440/finding-evidence.png",
     fullPage: true,
   });
   await finding.getByRole("tab", { name: "Resumo", exact: true }).click();
@@ -99,7 +99,7 @@ test("repository wizard, SCA and local Semgrep, evidence, remediation and export
   expect(response.status()).toBe(200);
   expect((await response.json()).runs[0].results.length).toBeGreaterThan(0);
   await page.keyboard.press("Escape");
-  await page.goto("/");
+  await page.goto("/exposure");
   await expect(page.getByText("Evidências dos scans").first()).toBeVisible();
   await page.goto("/inventory");
   await expect(

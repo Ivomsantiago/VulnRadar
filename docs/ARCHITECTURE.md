@@ -25,7 +25,7 @@ Nenhum gerenciador de pacotes, build, instalador ou código de projeto é execut
 
 ## Persistência
 
-- Vulnerability/Alias/Advisory: identidade canônica, aliases explícitos, payload por fonte, CVSS/EPSS/KEV e datas. A última normalização é apresentada junto às avaliações originais; divergências não são ocultadas.
+- Vulnerability/Alias/Advisory: identidade canônica, aliases explícitos, payload por fonte, CVSS/EPSS/KEV e datas. A maior severidade informada nos advisories atuais é priorizada com o CVSS da própria avaliação. Mirrors sem nota não apagam avaliações conhecidas; divergências e payloads originais continuam visíveis.
 - AffectedPackage: componente/ecossistema, intervalos e versões corrigidas. AffectedProduct: índice de CPEs NVD com fornecedor/produto e condições estruturadas. Nenhuma correspondência entre biblioteca e runtime é inferida por nome.
 - Project/Scan: raiz autorizada, motor, estágio, estado, resultado e cobertura. InventoryComponent e FindingObservation preservam observações por execução. Finding mantém identidade estável e último estado operacional.
 - FindingState: estado imutável por evento para exposição histórica, resolução e recorrência. O baseline registra o que se conhece na atualização; não inventa estados anteriores. Dias sem história/análise permanecem desconhecidos.
@@ -76,3 +76,7 @@ Webhook é opcional, HTTPS, allowlist explícita, recusa IP/DNS privados e redir
 Consulte V3_ACCEPTANCE.md e V3_STATUS.md. Testes usam bancos descartáveis e fixtures explicitamente separadas de integrações reais. Linux/Chromium e CLIs OCI foram exercitados; o workflow Windows executa testes e build PyInstaller. Build Windows não equivale a testar interação humana ou Semgrep nativo Windows. Docker/PostgreSQL não são requisitos do modo local e não foram executados nesta sessão.
 
 Cobertura depende de regras, lockfiles, SBOMs e bases das fontes. Ausência de correspondência não comprova segurança. Implantação multiusuário, sandbox forte e certificação humana WCAG exigem processos específicos além desta aplicação local.
+
+## Radar por período
+
+A página inicial usa /api/radar para publicações/atualizações em janelas exatas de 24h, 7/30/90 dias ou intervalo personalizado. As contagens representam inteligência coletada e não substituem /api/exposure. O dashboard de aplicações permanece em /exposure. /api/radar/collect persiste a janela solicitada em RadarCollection (migração 0007); seus checkpoints são independentes da coleta incremental. Páginas concluídas sobrevivem a falhas/cancelamento. GitHub usa cursor after do Link, com detecção de repetição; timestamps são normalizados para segundos UTC aceitos pela API.

@@ -24,3 +24,9 @@ docs/screenshots/v3/*/*.png
 !docs/screenshots/v3/1440/*.png
 !docs/screenshots/v3/*/dashboard.png
 .engines/
+
+# Publication radar screenshots: desktop routes plus home at each viewport.
+docs/screenshots/radar/*/*.png
+!docs/screenshots/radar/1440/*.png
+!docs/screenshots/radar/*/radar.png
+!docs/screenshots/radar/390/radar-real-month.png

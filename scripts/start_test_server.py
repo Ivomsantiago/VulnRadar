@@ -27,6 +27,8 @@ subprocess.run("fixture-never-executed", shell=True)
     semgrep = root / ".semgrep-venv" / ("Scripts" if os.name == "nt" else "bin")
     env["PATH"] = str(semgrep) + os.pathsep + env["PATH"]
     env["PATH"] = str(root / ".engines" / "bin") + os.pathsep + env["PATH"]
+    env["VULNRADAR_WEBHOOK_URL"] = ""
+    env["VULNRADAR_WEBHOOK_ALLOWED_HOSTS"] = "[]"
     subprocess.run([sys.executable, "-m", "alembic", "-c", "backend/alembic.ini", "upgrade", "head"], cwd=root, env=env, check=True)
     entrypoint, app_dir = ("browser_test_app:app", "scripts") if args.mock_osv else ("app.main:app", "backend")
     child = subprocess.Popen([sys.executable, "-m", "uvicorn", entrypoint, "--app-dir", app_dir, "--host", "127.0.0.1", "--port", str(args.port), "--log-level", "warning", "--no-access-log"], cwd=root, env=env)
