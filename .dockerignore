@@ -1,0 +1,11 @@
+.git
+.venv
+.semgrep-venv
+frontend/node_modules
+frontend/dist
+data
+.env
+**/__pycache__
+**/.pytest_cache
+**/test-results
+docs/screenshots

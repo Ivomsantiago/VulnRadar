@@ -1,0 +1,45 @@
+rules:
+  - id: python-subprocess-shell
+    languages: [python]
+    severity: ERROR
+    message: Evite shell=True; passe argumentos como lista e valide os dados de entrada.
+    metadata:
+      cwe: CWE-78
+    pattern: subprocess.$FUNC(..., shell=True, ...)
+  - id: python-pickle-load
+    languages: [python]
+    severity: WARNING
+    message: Desserialização pickle exige dados confiáveis; não use com conteúdo controlado externamente.
+    metadata:
+      cwe: CWE-502
+    pattern-either:
+      - pattern: pickle.loads(...)
+      - pattern: pickle.load(...)
+  - id: python-tls-verification-disabled
+    languages: [python]
+    severity: ERROR
+    message: Preserve a verificação TLS.
+    metadata:
+      cwe: CWE-295
+    pattern: $CLIENT.$METHOD(..., verify=False, ...)
+  - id: python-eval
+    languages: [python]
+    severity: WARNING
+    message: eval pode executar código não confiável; use parsing restrito.
+    metadata:
+      cwe: CWE-95
+    pattern: eval(...)
+  - id: javascript-innerhtml
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Atribuição a innerHTML precisa de sanitização e origem confiável.
+    metadata:
+      cwe: CWE-79
+    pattern: $EL.innerHTML = $VALUE
+  - id: python-insecure-hash
+    languages: [python]
+    severity: WARNING
+    message: MD5 não deve proteger senhas ou integridade contra adversários.
+    metadata:
+      cwe: CWE-327
+    pattern: hashlib.md5(...)

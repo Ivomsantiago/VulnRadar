@@ -1,0 +1,14 @@
+services:
+  radar:
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - radar-data:/app/data
+    environment:
+      VULNRADAR_DATABASE_URL: sqlite:///./data/vulnradar.db
+      VULNRADAR_ALLOWED_ROOTS: '[]'
+      VULNRADAR_AUTO_SYNC: 'false'
+    restart: unless-stopped
+volumes:
+  radar-data:
