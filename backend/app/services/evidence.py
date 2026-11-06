@@ -4,7 +4,7 @@ ECOSYSTEMS = {"pip": "PyPI", "maven": "Maven", "go": "Go", "rubygems": "RubyGems
 
 
 def evidence(source, raw):
-    if source == "osv":
+    if source in {"osv", "trivy", "grype"}:
         packages = []
         for entry in raw.get("affected", []):
             package = entry.get("package", {})
@@ -48,11 +48,12 @@ def evidence(source, raw):
             "cwes": raw.get("cwes", []),
         }
     if source == "nvd":
+        from .products import cpe_products
         cve = raw.get("cve", raw)
         return {
             "source": source,
             "packages": [],
-            "products": cve.get("configurations", []),
+            "products": list(cpe_products(raw)),
             "references": cve.get("references", []),
             "scores": cve.get("metrics", {}),
             "cwes": cve.get("weaknesses", []),

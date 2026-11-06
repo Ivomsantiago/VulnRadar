@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     max_scan_bytes: int = 100_000_000
     max_files: int = 2000
     scan_timeout: int = 120
+    oci_timeout: int = 600
+    oci_registries: list[str] = ["docker.io", "registry-1.docker.io", "ghcr.io", "quay.io"]
+    osv_batch: bool = True
     frontend_dist: Path = Path(__file__).resolve().parents[2] / "frontend" / "dist"
     semgrep_rules: Path = Path(__file__).resolve().parents[2] / "rules" / "semgrep"
 

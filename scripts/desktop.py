@@ -16,6 +16,8 @@ def main():
     os.environ.setdefault("VULNRADAR_FRONTEND_DIST", str(base / "frontend" / "dist"))
     os.environ.setdefault("VULNRADAR_SEMGREP_RULES", str(base / "rules" / "semgrep"))
     sys.path.insert(0, str(base / "backend"))
+    engine_base = Path(sys.executable).parent if getattr(sys, "frozen", False) else base
+    os.environ["PATH"] = str(engine_base / ".engines" / "bin") + os.pathsep + os.environ.get("PATH", "")
     from alembic.config import Config
     from alembic import command
     config = Config(str(base / "backend" / "alembic.ini"))

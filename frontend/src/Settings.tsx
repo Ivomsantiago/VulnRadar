@@ -144,6 +144,8 @@ export function SettingsPage() {
   const settings = useData<{
     allowed_roots: string[];
     semgrep_available: boolean;
+    trivy_available: boolean;
+    grype_available: boolean;
     webhook_configured: boolean;
     webhook_format: string;
     nvd_key_configured: boolean;
@@ -177,6 +179,24 @@ export function SettingsPage() {
         </section>
         <section className="panel padded">
           <h2>Mecanismos e credenciais</h2>
+          <div className="check-row">
+            <b>Trivy OCI</b>
+            <Badge
+              value={settings.data?.trivy_available ? "ready" : "missing"}
+            />
+          </div>
+          <div className="check-row">
+            <b>Grype OCI</b>
+            <Badge
+              value={settings.data?.grype_available ? "ready" : "missing"}
+            />
+          </div>
+          <p className="field-hint">
+            Mecanismos OCI são opcionais. Para instalar releases oficiais com
+            checksum verificado:{" "}
+            <code>python scripts/install_engines.py all</code>, usando o
+            ambiente Python da instalação. Reinicie o servidor após instalar.
+          </p>
           <div className="check-row">
             <b>Webhook de notificações</b>
             <Badge

@@ -8,6 +8,8 @@ const routes = [
   "/projects",
   "/priorities",
   "/inventory",
+  "/oci",
+  "/reports",
   "/watchlist",
   "/alerts",
   "/history",
@@ -63,6 +65,15 @@ test("WCAG automated checks across operational pages and native drawers", async 
     .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
     .analyze();
   expect(report.violations).toEqual([]);
+  for (const path of ["/search", "/watchlist", "/oci", "/reports"]) {
+    await page.goto(path);
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    const lightReport = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"])
+      .analyze();
+    expect(lightReport.violations, path + " light theme").toEqual([]);
+  }
+  await page.goto("/settings");
   await page.getByLabel("Tema visual").selectOption("dark");
   await page
     .getByRole("button", { name: "Salvar preferências", exact: true })

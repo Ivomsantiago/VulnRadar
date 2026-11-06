@@ -6,6 +6,8 @@ from sqlalchemy import select
 from ..db import Activity, Finding, FindingObservation, InventoryComponent, Scan, Vulnerability, now, utc_datetime
 from .evidence import evidence
 from .intelligence import upsert, severity_name
+from .history import record_state
+from .packages import package_identity
 
 CLOSED = {"resolved", "not_applicable", "false_positive", "accepted", "mitigated"}
 SEVERITY_ORDER = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "UNKNOWN": 0}
@@ -25,6 +27,10 @@ def can_compare(previous, current, kind):
         return False
     if not old.get("engine") or old.get("engine") != new.get("engine"):
         return False
+    if old.get("engine_version") != new.get("engine_version"):
+        return False
+    if kind == "oci":
+        return bool(new.get("image")) and old.get("image") == new.get("image") and old.get("coverage") == new.get("coverage") == "complete"
     # Scope equality is necessary: missing manifests or skipped files must not look fixed.
     if kind == "sca":
         return (
@@ -57,14 +63,15 @@ def index_scan(session, scan, legacy=False):
         data = engine_result(scan, kind)
         observed = set()
         for raw in data.get("findings", []):
-            if kind == "sca":
+            if kind in {"sca", "oci"}:
                 dependency = raw["dependency"]
-                vulnerability = upsert(session, "osv", raw["advisory"])
+                source = raw.get("source", "osv")
+                vulnerability = upsert(session, source, raw["advisory"], context="scan")
                 fixed = sorted(
                     {
                         version
-                        for package in evidence("osv", raw["advisory"])["packages"]
-                        if package["package"] == dependency["package"] and package["ecosystem"] == dependency["ecosystem"]
+                        for package in evidence(source, raw["advisory"])["packages"]
+                        if package_identity(dependency["ecosystem"], package["package"]) == package_identity(dependency["ecosystem"], dependency["package"]) and package["ecosystem"] == dependency["ecosystem"]
                         for version in package["fixed"]
                     }
                 )
@@ -116,7 +123,7 @@ def index_scan(session, scan, legacy=False):
                 if len(matches) == 1:
                     finding = matches[0]
                     finding.fingerprint = key
-            if finding is None and kind == "sca":
+            if finding is None and kind in {"sca", "oci"}:
                 finding = session.scalar(
                     select(Finding).where(
                         Finding.project_id == scan.project_id,
@@ -140,6 +147,7 @@ def index_scan(session, scan, legacy=False):
                 )
                 session.add(finding)
                 session.flush()
+                record_state(session, finding, "baseline" if legacy else "created")
                 counts["new"] += 1
                 if not legacy:
                     session.add(
@@ -161,6 +169,9 @@ def index_scan(session, scan, legacy=False):
                     session.add(Activity(kind="finding.reopened", subject=f"finding:{finding.id}", data={"previous_status": finding.status, "scan_id": scan.id}))
                     finding.status = "new"
                     counts["reopened"] += 1
+                    record_state(session, finding, "reopened")
+                else:
+                    record_state(session, finding, "observed")
                 counts["persistent"] += 1
             if finding.id not in observed:
                 session.add(FindingObservation(scan_id=scan.id, finding_id=finding.id, evidence=raw))
@@ -178,6 +189,7 @@ def index_scan(session, scan, legacy=False):
             for old in session.scalars(select(Finding).where(Finding.id.in_(previous_ids), Finding.kind == kind)):
                 if old.id not in observed and old.status not in CLOSED:
                     old.status = "resolved"
+                    record_state(session, old, "resolved")
                     counts["resolved"] += 1
                     session.add(
                         Activity(kind="finding.resolved", subject=f"finding:{old.id}", data={"scan_id": scan.id, "reason": "Ausente em análise completa de escopo comparável"})

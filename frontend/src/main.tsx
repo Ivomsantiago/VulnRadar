@@ -17,30 +17,20 @@ import {
 } from "@tanstack/react-query";
 import {
   Radar,
-  LayoutDashboard,
-  ListTodo,
-  ShieldAlert,
   Search,
-  FolderGit2,
-  Eye,
   Bell,
-  RefreshCw,
   Settings,
-  History,
-  Download,
-  Activity,
   Menu,
   ChevronDown,
-  Boxes,
-  ScanLine,
   ShieldCheck,
-  Layers,
   PanelLeftClose,
   Monitor,
   Command,
   X,
 } from "lucide-react";
-import { type Exposure, type Source } from "./api";
+import { journeys } from "./navigation";
+import { OCI } from "./OCI";
+import { type Source } from "./api";
 import { Empty, useData } from "./shared";
 import { useStored, Skeleton } from "./ui";
 import { CommandPalette } from "./CommandPalette";
@@ -53,78 +43,33 @@ import { Technologies } from "./Technologies";
 import { Watchlist } from "./Watchlist";
 import { Sources } from "./Sources";
 import { HistoryPage } from "./History";
-import { Reports } from "./Reports";
 import { SettingsPage } from "./Settings";
 import "./style.css";
 const Overview = React.lazy(() =>
   import("./Overview").then((m) => ({ default: m.Overview })),
+);
+const Reports = React.lazy(() =>
+  import("./Reports").then((m) => ({ default: m.Reports })),
 );
 const client = new QueryClient({
   defaultOptions: {
     queries: { retry: 1, staleTime: 5000, refetchInterval: 20000 },
   },
 });
-const groups = [
-  {
-    label: "OVERVIEW",
-    items: [
-      { path: "/", label: "Dashboard", icon: LayoutDashboard },
-      { path: "/priorities", label: "Central de prioridades", icon: ListTodo },
-    ],
-  },
-  {
-    label: "VULNERABILITY INTELLIGENCE",
-    items: [
-      { path: "/feed", label: "Feed de vulnerabilidades", icon: ShieldAlert },
-      { path: "/search", label: "Busca avançada", icon: Search },
-      {
-        path: "/technologies",
-        label: "Tecnologias e bibliotecas",
-        icon: Boxes,
-      },
-      { path: "/exploration", label: "Exploração conhecida", icon: Activity },
-    ],
-  },
-  {
-    label: "APPLICATION SECURITY",
-    items: [
-      { path: "/projects", label: "Repositórios", icon: FolderGit2 },
-      { path: "/sca", label: "Análises SCA", icon: ScanLine },
-      { path: "/sast", label: "Análises SAST", icon: ShieldCheck },
-      { path: "/inventory", label: "Inventário / SBOM", icon: Layers },
-    ],
-  },
-  {
-    label: "GESTÃO",
-    items: [
-      { path: "/watchlist", label: "Watchlist", icon: Eye },
-      { path: "/alerts", label: "Alertas", icon: Bell },
-      { path: "/triage", label: "Triagem e remediação", icon: ListTodo },
-      { path: "/reports", label: "Relatórios", icon: Download },
-    ],
-  },
-  {
-    label: "PLATAFORMA",
-    items: [
-      { path: "/sources", label: "Fontes de inteligência", icon: RefreshCw },
-      { path: "/history", label: "Histórico e jobs", icon: History },
-      { path: "/settings", label: "Configurações", icon: Settings },
-    ],
-  },
-];
+const groups = journeys;
+function LegacyRoute({ to }: { to: string }) {
+  const location = useLocation();
+  return <Navigate to={to + location.search + location.hash} replace />;
+}
+
 function App() {
   const location = useLocation();
   const qc = useQueryClient();
   const [collapsed, setCollapsed] = useStored("vr-sidebar-collapsed", false);
-  const [closedGroups, setClosedGroups] = useStored<string[]>(
-    "vr-sidebar-groups",
-    [],
-  );
   const [mobile, setMobile] = useState(false);
   const [palette, setPalette] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
-  const exposure = useData<Exposure>("exposure", "/exposure");
   const sources = useData<Source[]>("sources", "/sources");
   const preferences = useData<{ theme: string }>("preferences", "/preferences");
   useEffect(() => {
@@ -159,6 +104,9 @@ function App() {
   const active = groups
     .flatMap((g) => g.items.map((i) => ({ ...i, group: g.label })))
     .find((i) => i.path === location.pathname);
+  const journey = groups.find((group) =>
+    group.items.some((item) => item.path === location.pathname),
+  );
   const syncing = sources.data?.some((s) => s.status === "running");
   return (
     <div
@@ -200,48 +148,19 @@ function App() {
         </Link>
         <nav aria-label="Navegação principal">
           {groups.map((group) => (
-            <div className="nav-group" key={group.label}>
-              <button
-                className="nav-label"
-                aria-expanded={!closedGroups.includes(group.label)}
-                onClick={() =>
-                  setClosedGroups(
-                    closedGroups.includes(group.label)
-                      ? closedGroups.filter((g) => g !== group.label)
-                      : [...closedGroups, group.label],
-                  )
-                }
-              >
-                <span>{group.label}</span>
-                <ChevronDown
-                  size={12}
-                  className={
-                    closedGroups.includes(group.label) ? "rotated" : ""
-                  }
-                />
-              </button>
-              {(!closedGroups.includes(group.label) || collapsed) &&
-                group.items.map((item) => (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    end
-                    title={item.label}
-                  >
-                    <item.icon size={17} />
-                    <span className="nav-text">{item.label}</span>
-                    {!collapsed &&
-                    ((item.path === "/sca" && exposure.data?.open_sca) ||
-                      (item.path === "/sast" && exposure.data?.open_sast)) ? (
-                      <span className="nav-count">
-                        {item.path === "/sca"
-                          ? exposure.data?.open_sca
-                          : exposure.data?.open_sast}
-                      </span>
-                    ) : null}
-                  </NavLink>
-                ))}
-            </div>
+            <Link
+              key={group.label}
+              to={group.items[0].path}
+              title={group.label}
+              className={
+                group.items.some((item) => item.path === location.pathname)
+                  ? "active"
+                  : ""
+              }
+            >
+              <group.icon size={18} />
+              <span className="nav-text">{group.label}</span>
+            </Link>
           ))}
         </nav>
         <div className="sidebar-bottom">
@@ -311,6 +230,15 @@ function App() {
           </Link>
         </header>
         <main id="main-content" tabIndex={-1}>
+          {journey && journey.items.length > 1 && (
+            <nav className="journey-tabs" aria-label={journey.label}>
+              {journey.items.map((item) => (
+                <NavLink key={item.path} to={item.path} end>
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
+          )}
           <React.Suspense fallback={<Skeleton rows={7} />}>
             <Routes>
               <Route path="/" element={<Overview />} />
@@ -322,6 +250,7 @@ function App() {
               <Route path="/projects" element={<Projects />} />
               <Route path="/sca" element={<FindingsPage kind="sca" />} />
               <Route path="/sast" element={<FindingsPage kind="sast" />} />
+              <Route path="/oci" element={<OCI />} />
               <Route path="/inventory" element={<Inventory />} />
               <Route path="/watchlist" element={<Watchlist />} />
               <Route path="/alerts" element={<HistoryPage alerts />} />
@@ -332,15 +261,15 @@ function App() {
               <Route path="/settings" element={<SettingsPage />} />
               <Route
                 path="/vulnerabilities"
-                element={<Navigate to="/feed" replace />}
+                element={<LegacyRoute to="/feed" />}
               />
               <Route
                 path="/repositories"
-                element={<Navigate to="/projects" replace />}
+                element={<LegacyRoute to="/projects" />}
               />
               <Route
                 path="/findings"
-                element={<Navigate to="/priorities" replace />}
+                element={<LegacyRoute to="/priorities" />}
               />
               <Route
                 path="*"

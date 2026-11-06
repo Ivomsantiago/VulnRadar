@@ -8,6 +8,8 @@ def cyclone_dx(inventory):
     for (ecosystem, package, version), dependency in unique.items():
         kind = ecosystem_types.get(ecosystem)
         component = {"type": "library", "name": package, "version": version}
+        if dependency.get("purl"):
+            component["purl"] = dependency["purl"]
         if kind:
             name = package.replace(":", "/") if kind == "maven" else package
             component["purl"] = f"pkg:{kind}/{quote(name, safe='/')}@{quote(version, safe='')}"

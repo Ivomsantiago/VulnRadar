@@ -5,6 +5,7 @@ import { Search, Eye, ArrowRight } from "lucide-react";
 import { api, type Technology, type Page } from "./api";
 import { Header, ErrorBox, Empty, useData, Badge } from "./shared";
 import { Pagination, Skeleton, useDebounced } from "./ui";
+import { Products } from "./Products";
 export const ecosystems = [
   "npm",
   "PyPI",
@@ -155,6 +156,7 @@ export function Technologies() {
           onChange={setPage}
         />
       </section>
+      <Products />
     </>
   );
 }

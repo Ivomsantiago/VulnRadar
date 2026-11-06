@@ -299,6 +299,9 @@ const filterLabels: Record<string, string> = {
   severity: "Severidade",
   ecosystem: "Ecossistema",
   package: "Pacote",
+  vendor: "Fornecedor",
+  product: "Produto CPE",
+  version: "Versão do produto",
   source: "Fonte",
   cvss_min: "CVSS mín.",
   cvss_max: "CVSS máx.",
@@ -552,6 +555,9 @@ export function Feed({ kev = false }: { kev?: boolean }) {
                 fields: [
                   ["ecosystem", "Ecossistema", "text"],
                   ["package", "Nome exato do pacote", "text"],
+                  ["vendor", "Fornecedor CPE", "text"],
+                  ["product", "Produto CPE", "text"],
+                  ["version", "Versão do produto", "text"],
                 ],
               },
               {
@@ -688,6 +694,12 @@ export function Details({ id, close }: { id: string; close: () => void }) {
     vulnerability: Vulnerability;
     priority: { classification: string; reasons: string[] };
     aliases: string[];
+    source_assessments?: {
+      source: string;
+      severity: string;
+      cvss: number | null;
+      modified: string | null;
+    }[];
     evidence: SourceEvidence[];
     advisories: { id: string; source: string; payload: unknown }[];
     history: Event[];
@@ -766,6 +778,51 @@ export function Details({ id, close }: { id: string; close: () => void }) {
                         </span>
                       </div>
                       <p className="description">{v.description}</p>
+                      {!!data.data.source_assessments?.length && (
+                        <section className="evidence-block">
+                          <h3>Avaliações por fonte</h3>
+                          {(new Set(
+                            data.data.source_assessments
+                              .filter((s) => s.severity !== "UNKNOWN")
+                              .map((s) => s.severity),
+                          ).size > 1 ||
+                            new Set(
+                              data.data.source_assessments
+                                .filter((s) => s.cvss !== null)
+                                .map((s) => s.cvss),
+                            ).size > 1) && (
+                            <div className="notice">
+                              As fontes divergem em classificação ou CVSS.
+                              Revise as evidências antes de decidir a
+                              aplicabilidade local.
+                            </div>
+                          )}
+                          <div className="table-scroll">
+                            <table>
+                              <thead>
+                                <tr>
+                                  <th>Fonte</th>
+                                  <th>Severidade</th>
+                                  <th>CVSS</th>
+                                  <th>Atualização</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {data.data.source_assessments.map(
+                                  (s, index) => (
+                                    <tr key={s.source + index}>
+                                      <td>{s.source.toUpperCase()}</td>
+                                      <td>{s.severity}</td>
+                                      <td>{s.cvss ?? "Não informado"}</td>
+                                      <td>{formatDate(s.modified)}</td>
+                                    </tr>
+                                  ),
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </section>
+                      )}
                       <p className="muted">
                         CWE:{" "}
                         {[
