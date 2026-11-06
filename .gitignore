@@ -19,3 +19,7 @@ test-results/
 docs/screenshots/v2/*/*.png
 !docs/screenshots/v2/1440/*.png
 !docs/screenshots/v2/*/dashboard.png
+
+docs/screenshots/v3/*/*.png
+!docs/screenshots/v3/1440/*.png
+!docs/screenshots/v3/*/dashboard.png

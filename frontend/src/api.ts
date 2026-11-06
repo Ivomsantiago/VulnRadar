@@ -120,6 +120,10 @@ export type Page<T> = {
   scope?: string;
 };
 export type Finding = {
+  owner?: string | null;
+  due_at?: string | null;
+  risk_expires_at?: string | null;
+  remediation_plan?: string | null;
   id: number;
   project_id: number;
   project_name: string;

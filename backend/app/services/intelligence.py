@@ -3,6 +3,7 @@
 import asyncio
 import random
 import time
+import copy
 from datetime import datetime, timedelta, timezone
 import httpx
 from cvss import CVSS2, CVSS3, CVSS4
@@ -178,7 +179,17 @@ def upsert(session, source, raw):
         vulnerability.severity = item["severity"]
         if item["cvss"] is not None:
             vulnerability.cvss = item["cvss"]
-        session.add(Activity(kind="vulnerability.updated" if not new else "vulnerability.new", subject=canonical, data={"source": source}))
+        session.add(
+            Activity(
+                kind="vulnerability.updated" if not new else "vulnerability.new",
+                subject=canonical,
+                data={
+                    "source": source,
+                    "previous": {key: normalize(source, previous).get(key) for key in ("severity", "cvss", "modified")} if previous else None,
+                    "current": {key: item.get(key) for key in ("severity", "cvss", "modified")},
+                },
+            )
+        )
         if new and (vulnerability.severity in {"CRITICAL", "HIGH"}):
             session.add(Activity(kind="alert", subject=canonical, data={"reason": "Nova vulnerabilidade alta ou crítica", "source": source}))
     vulnerability.severity = severity_name(vulnerability.severity)
@@ -188,12 +199,20 @@ def upsert(session, source, raw):
     return vulnerability
 
 
+_OSV_CACHE = {}
+
+
 async def query_osv(ecosystem, package, version):
+    key = (ecosystem, package, version)
+    cached = _OSV_CACHE.get(key)
+    if cached and time.monotonic() - cached[0] < 300:
+        return copy.deepcopy(cached[1])
     async with httpx.AsyncClient(timeout=30) as client:
         payload = {"package": {"ecosystem": ecosystem, "name": package}}
         if version:
             payload["version"] = version
         rows, token = [], None
+        seen_tokens = set()
         while True:
             if token:
                 payload["page_token"] = token
@@ -202,7 +221,13 @@ async def query_osv(ecosystem, package, version):
             rows.extend(body.get("vulns", []))
             token = body.get("next_page_token")
             if not token:
+                if len(_OSV_CACHE) >= 256:
+                    _OSV_CACHE.pop(next(iter(_OSV_CACHE)))
+                _OSV_CACHE[key] = (time.monotonic(), copy.deepcopy(rows))
                 return rows
+            if token in seen_tokens:
+                raise ValueError("OSV retornou paginação repetida; consulta incompleta")
+            seen_tokens.add(token)
             if len(rows) > 10000:
                 raise ValueError("Consulta OSV excede o limite de resultados; refine com uma versão")
 

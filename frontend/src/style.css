@@ -2874,3 +2874,87 @@ dialog.modal {
     margin-left: 4px;
   }
 }
+/* V3: readable metadata and print output without changing saved table density. */
+small,
+.muted,
+.table-sub,
+.page-header p,
+.panel-heading p,
+.coverage-caption,
+.field-hint {
+  font-size: 12px;
+}
+td {
+  font-size: 12px;
+}
+th {
+  font-size: 10px;
+}
+.nav-label {
+  font-size: 10px;
+}
+nav a {
+  font-size: 12px;
+}
+.badge {
+  font-size: 11px;
+}
+.eyebrow {
+  font-size: 10px;
+}
+.metric > div,
+.metric small,
+.kpi-state {
+  font-size: 11px;
+}
+@media print {
+  aside,
+  .topbar,
+  footer,
+  .report-filters,
+  .button-row,
+  button,
+  .page-header > button {
+    display: none !important;
+  }
+  .app {
+    display: block !important;
+  }
+  main {
+    padding: 0;
+    max-width: none;
+  }
+  .panel {
+    break-inside: avoid;
+    background: white;
+    color: black;
+    border-color: #bbb;
+  }
+  .table-scroll {
+    overflow: visible;
+  }
+  table {
+    white-space: normal;
+  }
+  body {
+    background: white;
+    color: black;
+  }
+  th,
+  td,
+  p,
+  small {
+    color: black !important;
+    background: white !important;
+  }
+  a {
+    color: black !important;
+  }
+  h1 {
+    font-size: 22pt;
+  }
+}
+.compact-timeline a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

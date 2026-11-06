@@ -25,8 +25,9 @@ from .db import (
     Vulnerability,
     get_session,
     now,
+    utc_datetime,
 )
-from .schemas import TriageInput
+from .schemas import FindingTriageInput
 from .services.findings import CLOSED
 from .services.monitoring import prioritize, get_epss_threshold
 from .services.projects import browse, inspect_project
@@ -133,13 +134,22 @@ def finding_detail(identifier: int, session: DBSession = Depends(get_session)):
 
 
 @router.patch("/findings/{identifier}/triage")
-def finding_triage(identifier: int, body: TriageInput, session: DBSession = Depends(get_session)):
+def finding_triage(identifier: int, body: FindingTriageInput, session: DBSession = Depends(get_session)):
     finding = session.get(Finding, identifier)
     if finding is None:
         raise HTTPException(404)
     session.add(
         Activity(kind="finding.triage", subject=f"finding:{identifier}", data={"from": finding.status, "to": body.status, "reason": body.reason, "project_id": finding.project_id})
     )
+    if body.status == "accepted" and (body.risk_expires_at is None or utc_datetime(body.risk_expires_at) <= now()):
+        raise HTTPException(422, "Aceite de risco exige validade futura")
+    changes = {}
+    for field in ("owner", "due_at", "risk_expires_at", "remediation_plan"):
+        if field in body.model_fields_set:
+            changes[field] = {"from": jsonable_encoder(getattr(finding, field)), "to": jsonable_encoder(getattr(body, field))}
+            setattr(finding, field, getattr(body, field))
+    if changes:
+        session.add(Activity(kind="finding.assignment", subject=f"finding:{identifier}", data={"changes": changes, "reason": body.reason}))
     finding.status = body.status
     session.commit()
     return finding

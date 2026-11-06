@@ -1,4 +1,5 @@
 import asyncio
+import os
 import json
 import re
 import shutil
@@ -14,7 +15,12 @@ from .intelligence import query_osv
 
 def parse_dependencies(path: Path):
     name = path.name
-    text = path.read_text(encoding="utf-8-sig")
+    descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    with os.fdopen(descriptor, "rb") as handle:
+        content = handle.read(settings.max_file_bytes + 1)
+    if len(content) > settings.max_file_bytes:
+        raise ValueError("Manifesto excede o limite")
+    text = content.decode("utf-8-sig")
     dependencies = []
     warnings = []
 
@@ -27,10 +33,16 @@ def parse_dependencies(path: Path):
     if name == "package-lock.json":
         data = json.loads(text)
         if "packages" in data:
-            direct = data["packages"].get("", {}).get("dependencies", {})
+            root_package = data["packages"].get("", {})
+            direct = {**root_package.get("dependencies", {}), **root_package.get("devDependencies", {}), **root_package.get("optionalDependencies", {})}
             for key, item in data["packages"].items():
                 if key and item.get("version"):
-                    add("npm", item.get("name") or key.rsplit("node_modules/", 1)[-1], item["version"], key.removeprefix("node_modules/") in direct)
+                    add(
+                        "npm",
+                        item.get("name") or key.rsplit("node_modules/", 1)[-1],
+                        item["version"],
+                        key == "node_modules/" + (item.get("name") or key.rsplit("node_modules/", 1)[-1]) and key.removeprefix("node_modules/") in direct,
+                    )
         else:
 
             def walk(items, direct):
@@ -49,7 +61,13 @@ def parse_dependencies(path: Path):
             package, separator, version = key.rpartition("@")
             if not separator:
                 package, separator, version = key.rpartition("/")
-            add("npm", package, version)
+            direct_refs = set()
+            for importer in data.get("importers", {}).values():
+                for group in ("dependencies", "devDependencies", "optionalDependencies"):
+                    for dependency, value in importer.get(group, {}).items():
+                        resolved = value.get("version", "") if isinstance(value, dict) else value
+                        direct_refs.add((dependency, str(resolved).split("(", 1)[0]))
+            add("npm", package, version, (package, version) in direct_refs if data.get("importers") else None)
     elif name == "yarn.lock":
         if "__metadata:" in text:
             data = yaml.safe_load(text)
@@ -74,6 +92,8 @@ def parse_dependencies(path: Path):
                 continue
             match = re.match(r"^([A-Za-z0-9_.-]+)(?:\[[^\]]+\])?==([^;\s]+)", line)
             if match:
+                if ";" in line:
+                    warnings.append("Marcador de ambiente Python não avaliado; presença depende do ambiente alvo")
                 add("PyPI", match[1], match[2])
             else:
                 warnings.append(f"Requisito sem versão exata: {line[:100]}")
@@ -94,9 +114,17 @@ def parse_dependencies(path: Path):
             add("Go", match[1], match[2])
     elif name == "pom.xml":
         root = fromstring(text)
-        for item in root.findall(".//{*}dependencies/{*}dependency"):
-            add("Maven", f"{item.findtext('{*}groupId')}:{item.findtext('{*}artifactId')}", item.findtext("{*}version"))
-        warnings.append("POM não resolve propriedades, perfis, herança ou dependências transitivas")
+        properties = {item.tag.rsplit("}", 1)[-1]: item.text for item in root.findall("{*}properties/*")}
+        for item in root.findall("{*}dependencies/{*}dependency"):
+            group, artifact, version = item.findtext("{*}groupId"), item.findtext("{*}artifactId"), item.findtext("{*}version")
+            if version:
+                for key, value in properties.items():
+                    version = version.replace("${" + key + "}", value or "")
+            if group and artifact:
+                add("Maven", f"{group}:{artifact}", version, True)
+            else:
+                warnings.append("Dependência Maven sem coordenadas completas")
+        warnings.append("POM não resolve propriedades externas, perfis, herança ou dependências transitivas")
     elif name == "gradle.lockfile":
         for line in text.splitlines():
             match = re.match(r"([^:#]+):([^:]+):([^=]+)=", line)
@@ -169,14 +197,22 @@ async def sca(root, progress=None):
     if progress:
         await progress("advisories")
     cache = {}
-    for item in inventory:
-        key = (item["ecosystem"], item["package"], item["version"])
-        if key not in cache:
+    semaphore = asyncio.Semaphore(4)
+
+    async def lookup(key):
+        async with semaphore:
             try:
                 cache[key] = await query_osv(*key)
             except Exception as exc:
-                warnings.append(f"Consulta incompleta para {item['package']}: {type(exc).__name__}")
+                warnings.append(f"Consulta incompleta para {key[1]}: {type(exc).__name__}")
                 cache[key] = None
+
+    keys = list(dict.fromkeys((item["ecosystem"], item["package"], item["version"]) for item in inventory))
+    # Bounded batches avoid creating an unbounded number of tasks.
+    for start in range(0, len(keys), 40):
+        await asyncio.gather(*(lookup(key) for key in keys[start : start + 40]))
+    for item in inventory:
+        key = (item["ecosystem"], item["package"], item["version"])
         item["query_status"] = "failed" if cache[key] is None else "complete"
         for advisory in cache[key] or []:
             findings.append({"dependency": item, "advisory": advisory, "evidence": "Correspondência de pacote e versão via OSV; alcançabilidade não avaliada"})
@@ -265,12 +301,16 @@ async def sast(root, progress=None):
                 lines = source.read_text(encoding="utf-8", errors="replace").splitlines()
                 start = max(0, finding.get("start", {}).get("line", 1) - 2)
                 end = min(len(lines), finding.get("end", {}).get("line", start + 1) + 1)
+                finding["matched_code"] = "\n".join(lines[max(0, finding.get("start", {}).get("line", 1) - 1) : finding.get("end", {}).get("line", 1)])[:10000]
                 snippet = "\n".join(f"{index + 1}: {lines[index]}" for index in range(start, min(end, start + 12)))
                 snippet = re.sub(r"(?i)((?:password|secret|api[_-]?key|token)\s*=\s*)[\"'][^\"']+[\"']", r"\1'<redacted>'", snippet)
                 snippet = re.sub(r"(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})", "<redacted>", snippet)
                 finding.setdefault("extra", {})["lines"] = snippet[:6000]
     import hashlib
 
+    for finding in data.get("results", []):
+        matched = finding.pop("matched_code", "")
+        finding["code_digest"] = hashlib.sha256("\n".join(line.strip() for line in matched.splitlines()).encode()).hexdigest() if matched else None
     rules_digest = hashlib.sha256(b"".join(rule.read_bytes() for rule in sorted(settings.semgrep_rules.glob("*.y*ml")))).hexdigest()
     return {
         "scope": sorted(scope),

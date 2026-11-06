@@ -45,3 +45,27 @@ def test_v2_upgrade_preserves_existing_records_and_scan_payload(tmp_path):
         assert json.loads(row[0]) == payload and row[1] == "partial" and not row[2]
         assert connection.execute("SELECT name,path FROM projects WHERE id=1").fetchone() == ("Existing project", "/preserved")
         assert connection.execute("SELECT min_severity,alerts_enabled FROM watchlist WHERE id=1").fetchone() == ("LOW", 1)
+
+
+def test_v3_upgrade_preserves_triaged_findings_and_observations(tmp_path):
+    import json
+    import sqlite3
+
+    root = Path(__file__).resolve().parents[1]
+    path = tmp_path / "v2-existing.db"
+    env = {**os.environ, "VULNRADAR_DATABASE_URL": f"sqlite:///{path}"}
+
+    def run(target):
+        subprocess.run([sys.executable, "-m", "alembic", "-c", str(root / "alembic.ini"), "upgrade", target], cwd=root, env=env, check=True, capture_output=True)
+
+    run("0004")
+    evidence = json.dumps({"extra": {"lines": "7: preserved evidence"}})
+    with sqlite3.connect(path) as connection:
+        connection.execute("INSERT INTO projects (id,name,path) VALUES (1,'Existing project','/preserved')")
+        connection.execute("INSERT INTO scans (id,project_id,kind,status,result,created_at) VALUES (1,1,'sast','completed','{}','2026-01-01')")
+        connection.execute("INSERT INTO findings (id,project_id,scan_id,kind,fingerprint,rule_id,file,status,severity,fixed_versions,evidence,first_seen,last_seen) VALUES (1,1,1,'sast','stable-identity','rule','a.py','false_positive','HIGH','[]',?,'2026-01-01','2026-01-01')", (evidence,))
+        connection.execute("INSERT INTO finding_observations (id,scan_id,finding_id,evidence) VALUES (1,1,1,?)", (evidence,))
+    run("head")
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("SELECT fingerprint,status,evidence,owner,due_at,risk_expires_at,remediation_plan FROM findings WHERE id=1").fetchone() == ("stable-identity", "false_positive", evidence, None, None, None, None)
+        assert connection.execute("SELECT scan_id,finding_id,evidence FROM finding_observations WHERE id=1").fetchone() == (1, 1, evidence)

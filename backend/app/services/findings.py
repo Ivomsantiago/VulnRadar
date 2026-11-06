@@ -3,7 +3,7 @@
 import hashlib
 import json
 from sqlalchemy import select
-from ..db import Activity, Finding, FindingObservation, InventoryComponent, Scan, Vulnerability, now
+from ..db import Activity, Finding, FindingObservation, InventoryComponent, Scan, Vulnerability, now, utc_datetime
 from .evidence import evidence
 from .intelligence import upsert, severity_name
 
@@ -38,7 +38,8 @@ def can_compare(previous, current, kind):
 def index_scan(session, scan, legacy=False):
     if scan.indexed:
         return
-    counts = {"new": 0, "persistent": 0, "resolved": 0, "comparable": False}
+    occurrences = {}
+    counts = {"reopened": 0, "new": 0, "persistent": 0, "resolved": 0, "comparable": False}
     for component in scan.result.get("inventory", []):
         session.add(
             InventoryComponent(
@@ -59,7 +60,14 @@ def index_scan(session, scan, legacy=False):
             if kind == "sca":
                 dependency = raw["dependency"]
                 vulnerability = upsert(session, "osv", raw["advisory"])
-                fixed = sorted({version for package in evidence("osv", raw["advisory"])["packages"] for version in package["fixed"]})
+                fixed = sorted(
+                    {
+                        version
+                        for package in evidence("osv", raw["advisory"])["packages"]
+                        if package["package"] == dependency["package"] and package["ecosystem"] == dependency["ecosystem"]
+                        for version in package["fixed"]
+                    }
+                )
                 values = dict(
                     vulnerability_id=vulnerability.id,
                     package=dependency["package"],
@@ -85,8 +93,29 @@ def index_scan(session, scan, legacy=False):
                     severity={"ERROR": "HIGH", "WARNING": "MEDIUM", "INFO": "LOW"}.get(extra.get("severity"), "UNKNOWN"),
                     fixed_versions=[],
                 )
-                key = fingerprint([kind, values["rule_id"], values["file"], values["line"]])
+                identity = raw.get("code_digest")
+                if identity:
+                    occurrence_key = (values["rule_id"], values["file"], identity)
+                    ordinal = occurrences.get(occurrence_key, 0)
+                    occurrences[occurrence_key] = ordinal + 1
+                    key = fingerprint([kind, *occurrence_key, ordinal])
+                else:
+                    key = fingerprint([kind, values["rule_id"], values["file"], values["line"]])
             finding = session.scalar(select(Finding).where(Finding.project_id == scan.project_id, Finding.kind == kind, Finding.fingerprint == key))
+            if finding is None and kind == "sast" and raw.get("code_digest"):
+                # Upgrade legacy identities only with matching rule, path and redacted matched line.
+                def matched_line(payload):
+                    line = payload.get("start", {}).get("line")
+                    return next((text.partition(": ")[2] for text in payload.get("extra", {}).get("lines", "").splitlines() if text.startswith(f"{line}: ")), None)
+
+                current_line = matched_line(raw)
+                candidates = session.scalars(
+                    select(Finding).where(Finding.project_id == scan.project_id, Finding.kind == kind, Finding.rule_id == values["rule_id"], Finding.file == values["file"])
+                )
+                matches = [candidate for candidate in candidates if candidate.id not in observed and current_line and matched_line(candidate.evidence) == current_line]
+                if len(matches) == 1:
+                    finding = matches[0]
+                    finding.fingerprint = key
             if finding is None and kind == "sca":
                 finding = session.scalar(
                     select(Finding).where(
@@ -126,9 +155,12 @@ def index_scan(session, scan, legacy=False):
                 finding.evidence = raw
                 for name, value in values.items():
                     setattr(finding, name, value)
-                if finding.status in {"resolved", "mitigated"}:
+                if finding.status in {"resolved", "mitigated"} or (
+                    finding.status == "accepted" and finding.risk_expires_at and utc_datetime(finding.risk_expires_at) <= now()
+                ):
                     session.add(Activity(kind="finding.reopened", subject=f"finding:{finding.id}", data={"previous_status": finding.status, "scan_id": scan.id}))
                     finding.status = "new"
+                    counts["reopened"] += 1
                 counts["persistent"] += 1
             if finding.id not in observed:
                 session.add(FindingObservation(scan_id=scan.id, finding_id=finding.id, evidence=raw))

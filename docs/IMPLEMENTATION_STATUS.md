@@ -49,3 +49,7 @@ Especificações: PRODUCT_SPEC.md (original) e PRODUCT_SPEC_V2.md (evolução). 
 Use o checkout existente. Scripts de instalação/start não mudaram de finalidade. Testes de navegador devem usar `scripts/start_test_server.py` (com `--mock-osv` no CI); nunca utilizar o banco operacional para fixtures. Não criar worktree sem pedido explícito.
 
 O ambiente publicado pelo usuário não foi alterado ou republicado nesta etapa. A implementação é enviada em uma branch/PR conforme a autorização anterior de subir o código ao GitHub; não há merge ou release automático.
+
+## Evolução V3
+
+Consulte PRODUCT_SPEC_V3.md, V3_AUDIT.md e V3_STATUS.md. Inclui correções de identidade SAST, precisão/performance SCA, remediação com responsável/prazo/validade e relatórios filtrados/CSV/JSON/print PDF. A especificação V3 completa continua com pendências explícitas nesse documento; não declarar cobertura OCI, CPE ou reconstrução histórica ainda não implementada.

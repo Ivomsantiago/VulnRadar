@@ -50,7 +50,7 @@ for (const width of [1920, 1440, 1366, 1024, 768, 390])
       ).toBeLessThanOrEqual(metrics.viewport + 1);
       expect(failures, `API failures at ${path}`).toEqual([]);
       await page.screenshot({
-        path: `../docs/screenshots/v2/${width}/${name}.png`,
+        path: `../docs/screenshots/v3/${width}/${name}.png`,
         fullPage: true,
       });
     }
