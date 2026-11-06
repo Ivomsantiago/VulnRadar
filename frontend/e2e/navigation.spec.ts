@@ -18,7 +18,10 @@ test("navigation, advanced filters, favorites, watchlist persistence and univers
     page.getByRole("heading", { name: "Threat Intelligence global" }),
   ).toBeVisible();
   await page
-    .getByRole("link", { name: "Feed de vulnerabilidades", exact: true })
+    .getByRole("link", {
+      name: "Inteligência de vulnerabilidades",
+      exact: true,
+    })
     .click();
   await page
     .getByRole("button", { name: "Filtros avançados", exact: false })
@@ -41,7 +44,9 @@ test("navigation, advanced filters, favorites, watchlist persistence and univers
       .getByLabel("Filtros favoritos")
       .getByRole("option", { name: "e2e-critical" }),
   ).toHaveCount(1);
-  await page.getByRole("link", { name: "Watchlist", exact: true }).click();
+  await page
+    .getByRole("link", { name: "Monitoramento e alertas", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Adicionar pacote", exact: true })
     .click();

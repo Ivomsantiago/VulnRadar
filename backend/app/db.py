@@ -213,3 +213,32 @@ class NotificationDelivery(Base):
     last_attempt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     next_attempt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error: Mapped[str | None] = mapped_column(String(200))
+
+
+class ProductWatch(Base):
+    __tablename__ = "product_watches"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    vendor: Mapped[str] = mapped_column(String(200))
+    product: Mapped[str] = mapped_column(String(200))
+    version: Mapped[str] = mapped_column(String(100))
+    alerts_enabled: Mapped[bool] = mapped_column(default=True)
+
+
+class AffectedProduct(Base):
+    __tablename__ = "affected_products"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    advisory_id: Mapped[str] = mapped_column(ForeignKey("advisories.id"), index=True)
+    vendor: Mapped[str] = mapped_column(String(200), index=True)
+    product: Mapped[str] = mapped_column(String(200), index=True)
+    constraints: Mapped[dict] = mapped_column(JSON)
+
+
+class FindingState(Base):
+    """Immutable states for historical reporting; never reconstruct unrecorded history."""
+    __tablename__ = "finding_states"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    finding_id: Mapped[int] = mapped_column(ForeignKey("findings.id"), index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+    action: Mapped[str] = mapped_column(String(30))
+    data: Mapped[dict] = mapped_column(JSON)

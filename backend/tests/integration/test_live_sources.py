@@ -25,3 +25,21 @@ async def test_live_official_source(source):
 async def test_live_osv_version_lookup():
     rows = await query_osv("npm", "lodash", "4.17.20")
     assert rows and all("id" in row for row in rows)
+
+
+async def test_live_osv_batch_hydrates_full_advisories():
+    from app.services.intelligence import query_osv_batch
+    keys = [("npm", "lodash", "4.17.20"), ("PyPI", "django", "1.11.0")]
+    result = await query_osv_batch(keys)
+    assert all(result[key] and all(row.get("affected") for row in result[key]) for key in keys)
+
+
+async def test_live_nvd_cpe_index_uses_official_product_data(session):
+    from app.services.intelligence import upsert
+    from app.services.products import product_rows
+    async with httpx.AsyncClient(timeout=45) as client:
+        response = await request(client, "GET", URLS["nvd"], params={"cveId": "CVE-2021-44228"})
+        upsert(session, "nvd", response.json()["vulnerabilities"][0])
+        session.commit()
+    rows = list(product_rows(session, vendor="apache", product="log4j", version="2.14.1"))
+    assert rows and any(row["version_match"] == "affected" for row in rows)

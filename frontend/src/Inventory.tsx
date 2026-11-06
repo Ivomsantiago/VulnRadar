@@ -24,7 +24,7 @@ export function Inventory() {
       <Header
         eyebrow="APPLICATION SECURITY"
         title="Inventário de componentes"
-        description="Versões observadas na última análise SCA de cada projeto."
+        description="Último inventário SCA de cada projeto e resultados OCI por imagem e mecanismo."
         action={
           <Link className="button secondary" to="/projects">
             Analisar repositório
@@ -40,6 +40,24 @@ export function Inventory() {
         </p>
       </div>
       <div className="toolbar">
+        <select
+          aria-label="Ordenar inventário"
+          value={params.get("sort") || "package"}
+          onChange={(e) => set("sort", e.target.value)}
+        >
+          <option value="package">Por componente</option>
+          <option value="ecosystem">Por ecossistema</option>
+          <option value="version">Por versão (texto)</option>
+        </select>
+        <select
+          aria-label="Relação da dependência"
+          value={params.get("direct") || ""}
+          onChange={(e) => set("direct", e.target.value)}
+        >
+          <option value="">Todas as relações</option>
+          <option value="true">Diretas</option>
+          <option value="false">Transitivas</option>
+        </select>
         <div className="search-field">
           <Search size={16} />
           <input

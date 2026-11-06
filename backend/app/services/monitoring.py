@@ -36,7 +36,7 @@ async def check_watch(session, identifier):
     rows = await query_osv(watch.ecosystem, watch.package, watch.version)
     items = []
     for raw in rows:
-        vulnerability = upsert(session, "osv", raw)
+        vulnerability = upsert(session, "osv", raw, context="watch")
         items.append(vulnerability)
         material = fingerprint([raw.get("affected"), raw.get("severity"), raw.get("database_specific")])[:16]
         subject = f"watch:{identifier}:{vulnerability.id}:{material}"

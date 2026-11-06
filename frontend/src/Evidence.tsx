@@ -1,5 +1,13 @@
 export type SourceEvidence = {
   source: string;
+  updated_at?: string | null;
+  products?: {
+    vendor: string;
+    product: string;
+    version: string;
+    cpe: string;
+    conditional: boolean;
+  }[];
   packages: {
     ecosystem: string;
     package: string;
@@ -18,6 +26,27 @@ export function Evidence({ items }: { items: SourceEvidence[] }) {
       {items.map((item, index) => (
         <section key={item.source + index} className="evidence-block">
           <h3>{item.source.toUpperCase()}</h3>
+          <p className="field-hint">
+            Última atualização informada:{" "}
+            {item.updated_at || "Não informada pela fonte"}
+          </p>
+          {item.products?.map((product, index) => (
+            <div className="evidence-package" key={product.cpe + index}>
+              <strong>
+                {product.vendor} / {product.product}
+              </strong>
+              <p>
+                Versão CPE: {product.version} ·{" "}
+                {product.conditional
+                  ? "Condições de plataforma exigem investigação"
+                  : "Condições do advisory"}
+              </p>
+              <details>
+                <summary>Identificador e limites CPE</summary>
+                <pre>{JSON.stringify(product, null, 2)}</pre>
+              </details>
+            </div>
+          ))}
           {item.packages.map((p, i) => (
             <div key={p.package + i} className="evidence-package">
               <strong>{p.package}</strong>

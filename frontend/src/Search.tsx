@@ -7,6 +7,7 @@ import { Header, ErrorBox, Empty, Badge } from "./shared";
 import { Skeleton } from "./ui";
 import { VulnerabilityTable, Details } from "./Investigation";
 import { ecosystems } from "./Technologies";
+import { Products } from "./Products";
 export function SearchPage() {
   const [params] = useSearchParams();
   const [ecosystem, setEco] = useState(params.get("ecosystem") || "npm");
@@ -152,6 +153,7 @@ export function SearchPage() {
           </p>
         </div>
       )}
+      <Products />
       {selected && <Details id={selected} close={() => setSelected(null)} />}
     </>
   );

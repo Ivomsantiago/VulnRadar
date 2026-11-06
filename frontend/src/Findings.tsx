@@ -1,5 +1,5 @@
 import { Evidence } from "./Evidence";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ShieldCheck, Search, ExternalLink, ArrowRight } from "lucide-react";
@@ -141,6 +141,9 @@ export function FindingDetails({
 }) {
   const query = useData<Finding>("finding", "/findings/" + id);
   const qc = useQueryClient();
+  useEffect(() => {
+    if (query.data) setStatus(query.data.status);
+  }, [query.data?.id]);
   const [tab, setTab] = useState("summary");
   const [status, setStatus] = useState("investigating");
   const [reason, setReason] = useState("");
@@ -343,7 +346,10 @@ export function FindingDetails({
                               <input
                                 type="datetime-local"
                                 required
-                                value={assignment.risk_expires_at ?? ""}
+                                value={
+                                  assignment.risk_expires_at ??
+                                  localDateTime(finding.risk_expires_at)
+                                }
                                 onChange={(e) =>
                                   setAssignment({
                                     ...assignment,
@@ -494,12 +500,14 @@ export function FindingsPage({
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState(params.get("q") || "");
   const search = useDebounced(q);
-  const [selected, setSelected] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number | null>(
+    Number(params.get("finding")) || null,
+  );
   const page = Math.max(1, Number(params.get("page")) || 1);
   const status = params.get("status") || "open";
   const request = new URLSearchParams(params);
   request.set("q", search);
-  request.set("status", status);
+  request.set("status", status === "all" ? "" : status);
   if (kind) request.set("kind", kind);
   const data = useData<Page<Finding>>("findings", "/findings?" + request);
   const set = (key: string, value: string) => {
@@ -509,14 +517,18 @@ export function FindingsPage({
     setParams(n);
   };
   const queues = [
+    ["all", "Todos"],
     ["open", "Abertos"],
     ["new", "Novos"],
     ["pending", "Pendentes"],
     ["investigating", "Em análise"],
+    ["applicable", "Aplicáveis"],
     ["planned", "Planejados"],
     ["remediating", "Em remediação"],
     ["resolved", "Resolvidos"],
     ["not_applicable", "Não aplicáveis"],
+    ["false_positive", "Falsos positivos"],
+    ["mitigated", "Mitigados"],
     ["accepted", "Risco aceito"],
   ];
   return (
@@ -559,6 +571,29 @@ export function FindingsPage({
         ))}
       </div>
       <div className="toolbar">
+        <select
+          aria-label="Ordenar achados"
+          value={params.get("sort") || "priority"}
+          onChange={(e) => set("sort", e.target.value)}
+        >
+          <option value="priority">Por prioridade</option>
+          <option value="severity">Por severidade</option>
+          <option value="newest">Mais recentes</option>
+          <option value="due_at">Por prazo</option>
+          <option value="owner">Por responsável</option>
+        </select>
+        {!kind && (
+          <select
+            aria-label="Filtrar mecanismo"
+            value={params.get("kind") || ""}
+            onChange={(e) => set("kind", e.target.value)}
+          >
+            <option value="">Todos os mecanismos</option>
+            <option value="sca">SCA</option>
+            <option value="sast">SAST</option>
+            <option value="oci">OCI</option>
+          </select>
+        )}
         <div className="search-field">
           <Search size={16} />
           <input

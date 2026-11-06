@@ -22,6 +22,7 @@ import {
 } from "./shared";
 import { Modal, Skeleton } from "./ui";
 import { ecosystems } from "./Technologies";
+import { ProductWatches } from "./Products";
 function WatchEditor({ item, close }: { item?: Watch; close: () => void }) {
   const qc = useQueryClient();
   const [ecosystem, setEco] = useState(item?.ecosystem || "npm");
@@ -160,6 +161,7 @@ export function Watchlist() {
           </button>
         }
       />
+      <ProductWatches />
       <div className="watch-summary">
         <div>
           <Eye size={18} />

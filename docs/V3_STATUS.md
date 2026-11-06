@@ -1,40 +1,53 @@
-# V3: correções implementadas e limites
+# VulnRadar V3 — implementação e validação
 
-Base main b075aab. Migração 0005 aditiva, sem remoção de dados. Esta entrega cobre correções centrais e expansão de remediação/relatórios; **não representa conclusão integral de todos os requisitos V3**.
+A V3 conecta inteligência, análise local, OCI, investigação, remediação, monitoramento e relatórios. Migrações 0005/0006 são aditivas; não removem dados existentes. Os critérios e evidências estão em [V3_ACCEPTANCE.md](V3_ACCEPTANCE.md).
 
-## Implementado
-- Fingerprint SAST por regra/arquivo/conteúdo e ordinal para ocorrências iguais; mudanças de linha não criam novos achados. Migração conservadora da identidade legada somente com evidência inequívoca.
-- Correções SCA restritas ao pacote/ecossistema correspondente; não mistura versões corrigidas de outros componentes do advisory.
-- Classificação direta/transitiva npm baseada no caminho real de instalação e incluindo dev/optional; pnpm usa referências dos importers quando disponíveis.
-- POM usa dependências do projeto, não dependencyManagement como inventário instalado; propriedades locais resolvidas, cobertura residual explicitada. Marcadores Python produzem aviso de cobertura, não resultado limpo.
-- Manifestos lidos com limite e O_NOFOLLOW na folha em plataformas compatíveis. Corridas nos diretórios ancestrais continuam exigindo árvore confiável/isolamento.
-- SCA com quatro consultas simultâneas, tarefas em lotes de 40 e deduplicação por identidade/versão. Cache OSV de sucesso por 5 minutos, máximo 256 entradas, cópias independentes; falhas não são cacheadas. Paginação repetida é rejeitada como consulta incompleta.
-- Histórico de alterações de advisory inclui classificação/CVSS/data anterior e atual.
-- Responsável, prazo, plano de correção e validade do risco persistidos. Aceite sem validade futura rejeitado. Aceite expirado reabre quando o achado reaparece; FP justificado permanece preservado.
-- Relatórios por projeto, primeira observação/período, severidade, estado, tecnologia e motor, com prazo vencido e cobertura de execuções. Preview e exportação usam a mesma consulta; até 5000 linhas com truncamento explícito.
-- CSV protegido contra fórmulas, JSON, e impressão formatada para salvar PDF no navegador. SARIF/CycloneDX permanecem por execução; não há endpoint de geração PDF servidor.
-- Metadados/fontes de tabela ampliados para legibilidade; estilos de impressão removem controles e navegação.
+## Funcionalidades entregues
+
+- Sidebar com as oito jornadas solicitadas, abas contextuais, navegação por teclado, responsividade e compatibilidade com URLs e filtros antigos. Tema escuro padrão e tema claro.
+- SCA com OSV querybatch real, hidratação deduplicada de advisories, cache TTL limitado, quatro consultas simultâneas, retry para rate limits e fallback paginado. Falhas individuais continuam parciais.
+- Parsers de npm, Yarn Classic/Berry, pnpm antigo/atual, Maven, Gradle, requirements, Poetry, uv, Pipfile, Go, NuGet/assets, Composer, Cargo, RubyGems e CycloneDX. Nomes normalizados somente quando o ecossistema define equivalência. Versões flutuantes/locais desconhecidas não viram vulnerabilidades confirmadas.
+- Fingerprints SAST independentes de deslocamentos de linha, ocorrências duplicadas separadas e atualização conservadora de identidades legadas. Versão do Semgrep participa da comparação; ignores/inline nosemgrep dos alvos não removem silenciosamente a cobertura. Evidência por execução preservada; comparações completas identificam novos, persistentes, resolvidos e reabertos. Parcial não resolve por ausência.
+- Trivy e Grype opcionais: análise remota de camadas OCI, sem Docker daemon e sem executar imagens. Fonte/digest, componentes, correções e achados persistidos como motor OCI separado. Ausência dos binários não prejudica SCA/SAST. Cancelamento mata o subprocesso; timeouts, limites de saída, concorrência única, GOMAXPROCS e orçamento de heap Go são aplicados.
+- Índice estruturado de CPEs NVD por fornecedor/produto, versões e limites, incluindo runtimes. Condições de plataforma e ordenações não verificáveis aparecem como desconhecidas. Pacotes npm/Maven não são confundidos com Node.js/Java runtime.
+- Monitoramento persistido de produtos/versões e pacotes, verificação manual e após coleta incremental; alertas deduplicados. Histórico distingue publicação informada pela fonte, primeira coleta, atualização de advisory e descoberta local. NVD atrasado recupera janelas paginadas de até 119 dias.
+- Avaliações de severidade/CVSS por fonte e divergências explícitas na investigação, com data da fonte quando disponível. KEV e EPSS permanecem evidências de inteligência, não prova de exploração local.
+- Remediação com justificativa, FP, responsável, prazo/SLA, plano e aceite com validade futura. Datas normalizadas para UTC. Aceite expirado reabre automaticamente, mesmo sem novo scan.
+- Histórico imutável dos estados dos achados. Relatórios de exposição diária, resoluções, recorrências e pendências usam os estados registrados, sem reescrever o passado após triagem.
+- Relatórios por projeto/período/severidade/estado/tecnologia/motor e mudanças novas/resolvidas/reabertas. Paginação da visualização; exportações JSON/CSV/PDF no servidor usam os mesmos filtros. Histórico também exporta JSON/CSV/PDF. SARIF e CycloneDX ficam disponíveis por execução aplicável.
+- Leitura limitada por handles: POSIX ancora cada diretório com O_NOFOLLOW; Windows rejeita symlinks/junctions e verifica o caminho final do handle antes de ler. Arquivos não regulares são rejeitados. Registros OCI têm allowlist de host; chamadas externas não recebem shell nem scripts de alvos.
 
 ## Validação
 
-- Backend: 72 testes aprovados, incluindo 5 integrações externas reais. 67 locais + 5 opcionais.
-- Frontend: 7 testes aprovados, TypeScript e build aprovados.
-- Semgrep real confirma que deslocamento de três linhas preserva o digest de código.
-- Regressões cobrem duplicação de ocorrências, correções de pacote, concorrência/cache, classificação npm, validade do risco, responsável, relatório/CSV, normalização de fusos horários, cancelamento persistido e preservação de achados/evidências durante a migração 0004 → 0005.
-- Navegador V3: 11 cenários aprovados, incluindo FP com responsável, relatório filtrado, geração PDF por Chromium, WCAG automatizado e 17 rotas em seis larguras. A fixture OSV é explicitamente fictícia nesta suíte; Semgrep é real. Testes usam banco descartável.
+- Backend: 97 aprovados, incluindo sete integrações oficiais reais; evidências em V3_ACCEPTANCE.md.
+- Frontend: sete testes, TypeScript/build e auditoria npm. Sem novas dependências de produção.
+- Navegador: jornada de cadastro → análise combinada → evidência → triagem/FP → correção real dos arquivos da fixture → reanálise → resolução → recorrência/reabertura; CPE/monitoramento, PDF e navegação.
+- Trivy 0.76.2 e Grype 0.121.2 oficiais, instalados com SHA256 verificado, executados sobre imagens públicas reais; teste dedicado pelo navegador persiste e abre suas evidências em banco descartável.
+- Galeria Chromium atualizada em screenshots/v3; 18 rotas em seis larguras (1920/1440/1366/1024/768/390), com Axe em páginas operacionais e temas claro/escuro. A galeria V2 foi preservada.
+- PDF servidor validado também com Poppler (pdfinfo/pdftotext), A4 e texto extraível. Backup SQLite e preservação de migrações são verificados separadamente.
 
-## Ainda pendente da especificação V3
+## Cobertura e limites de operação
 
-- Trivy/Grype e análise OCI não foram integrados; não existe botão que simule esse suporte. É necessário modelar achados de sistema/container separadamente e validar instalação/execução dos binários.
-- Filtros CPE/fornecedor/produto/versões de runtime ainda precisam de modelo estruturado e semântica de intervalos por ecossistema.
-- Não foi substituída a navegação V2 inteira pelas oito jornadas V3; rotas existentes foram preservadas.
-- Relatórios usam estado atual e primeira observação, não reconstrução histórica completa de exposição. Não calcular tendências/SLA fictícios. PDF depende do recurso de impressão do navegador.
-- Não há queries OSV batch remotas; esta entrega usa concorrência limitada e cache com a API paginada existente.
-- Variantes históricas de lockfiles, resolução remota Maven/Gradle, análise de ambiente Python e alcance transitivo completo continuam limitados.
-- Não há garantia de remoção de corridas em árvores adversariais, sandbox forte, implantação multiusuário ou certificação WCAG. Permanecem as limitações V2 em IMPLEMENTATION_STATUS.md.
+Estes limites descrevem o escopo real dos mecanismos e da instalação local; não são botões simulados:
 
-Execução: `bash scripts/install.sh` atualiza dependências/build/migrações; `bash scripts/start.sh` inicia localmente. Preserve backup antes da migração de banco operacional. Navegador: servidor descartável `scripts/start_test_server.py --mock-osv`, depois Playwright. Não publicar ambiente, merge ou release automaticamente.
+- A aplicação inicia somente em loopback. Uso público/multiusuário exige autenticação, autorização, TLS e isolamento adicionais. Não foi publicada nem exposta remotamente.
+- Scanners não comprovam ausência universal de vulnerabilidades ou explorabilidade. SAST cobre regras/linguagens instaladas. Bases de advisories e registros OCI podem falhar ou omitir informações; cobertura é exibida.
+- Parsers não executam gerenciadores, builds, perfis ou resoluções remotas de projetos. Herança/BOM Maven externos, ambientes Python, condicionais/fechamento transitivo Go e variantes desconhecidas exigem um lockfile/SBOM apropriado; as limitações são reportadas.
+- CPEs condicionais não são reduzidos a prova de aplicabilidade. Datas da fonte ausentes continuam ausentes. Não são inventados CVSS, correções, tendências ou zero-days.
+- Histórico exato começa nos estados/baselines efetivamente registrados. Períodos anteriores ficam desconhecidos. Encerramento por triagem difere de comprovação técnica de correção; resoluções/reaberturas são eventos. Não há como reconstruir decisões que nunca foram registradas.
+- Uma instância/worker local por banco. SQLite não coordena workers distribuídos. Após reinício, tarefas interrompidas são falhas reenviáveis, sem retomada parcial automática.
+- PDF servidor usa fontes padrão WinAnsi para texto técnico/português; JSON/CSV e impressão do navegador preservam texto Unicode completo. Exportação de achados tem limite explícito de 5000; histórico tem limite explícito de eventos e marca exposição desconhecida ao truncar.
+- Redação de snippets cobre padrões comuns de credenciais e não é DLP. Scanners rodam como o usuário local; árvores adversariais exigem isolamento do sistema operacional. Axe automatizado não é certificação WCAG.
 
-Falhas intermediárias corrigidas: formulário não enviava atribuição; labels de filtros de relatório eram ambíguos; links em alertas dependiam só de cor. SARIF foi verificado com dez respostas HTTP 200; o teste permite uma única repetição de conexão ECONNRESET, sem ignorar erros HTTP ou asserções.
+## Execução local
 
-Atualização local validada: backup SQLite consistente em diretório privado antes da migração; todos os registros e campos anteriores preservados em 15 tabelas, integridade SQLite aprovada, esquema 0005. Nenhum dado de fixture foi inserido no banco operacional.
+```bash
+bash scripts/install.sh
+# Opcional: instalar os scanners oficiais com checksum verificado
+.venv/bin/python scripts/install_engines.py all
+bash scripts/start.sh
+```
+
+Windows: scripts/install.ps1 e scripts/start.ps1; OCI também aceita binários oficiais no PATH. Os binários opcionais ficam em .engines/bin, ignorados pelo Git. Somente registros definidos em VULNRADAR_OCI_REGISTRIES são aceitos. Semgrep deve ser instalado separadamente conforme README.
+
+Faça backup antes de atualizar o banco operacional: `.venv/bin/python scripts/backup.py data/vulnradar.db /caminho/novo/backup.db`. Testes usam banco descartável; nunca executar fixtures contra o banco operacional.

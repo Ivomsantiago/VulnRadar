@@ -5,6 +5,7 @@ from .logging import logger
 from .db import Activity, Project, Scan, Session, Source, SyncRun, Watch, now
 from .security import authorized_path
 from .services.scanner import sca, sast
+from .services.oci import oci
 from .services.findings import index_scan
 from .services.monitoring import check_watch
 from .services.intelligence import sync_source
@@ -49,7 +50,7 @@ async def run_scan(scan_id):
 
                 try:
                     root = authorized_path(project.path)
-                    async with asyncio.timeout(settings.scan_timeout):
+                    async with asyncio.timeout(settings.oci_timeout if scan.kind == "oci" else settings.scan_timeout):
                         if scan.kind == "combined":
                             results = {}
                             for kind, runner in (("sca", sca), ("sast", sast)):
@@ -64,6 +65,9 @@ async def run_scan(scan_id):
                                 "warnings": results["sca"].get("warnings", []) + results["sast"].get("warnings", []),
                                 "coverage": "partial" if any(r.get("warnings") for r in results.values()) else "complete",
                             }
+                        elif scan.kind == "oci":
+                            request = scan.result["request"]
+                            scan.result = await oci(request["image"], request["engine"], progress)
                         else:
                             scan.result = await (sca(root, progress) if scan.kind == "sca" else sast(root, progress))
                     await progress("consolidating")
@@ -147,6 +151,8 @@ async def scheduler_loop():
 
     while True:
         with Session() as session:
+            from .services.history import expire_risks
+            expire_risks(session)
             row = session.get(PlatformSetting, "scheduler")
             config = row.value if row else {"enabled": settings.auto_sync, "interval_minutes": max(5, settings.sync_minutes)}
             last = datetime.fromisoformat(config["last_started"]) if config.get("last_started") else None

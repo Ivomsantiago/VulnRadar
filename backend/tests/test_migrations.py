@@ -69,3 +69,23 @@ def test_v3_upgrade_preserves_triaged_findings_and_observations(tmp_path):
     with sqlite3.connect(path) as connection:
         assert connection.execute("SELECT fingerprint,status,evidence,owner,due_at,risk_expires_at,remediation_plan FROM findings WHERE id=1").fetchone() == ("stable-identity", "false_positive", evidence, None, None, None, None)
         assert connection.execute("SELECT scan_id,finding_id,evidence FROM finding_observations WHERE id=1").fetchone() == (1, 1, evidence)
+
+
+def test_completion_upgrade_preserves_remediation_fields(tmp_path):
+    import sqlite3
+    root = Path(__file__).resolve().parents[1]
+    path = tmp_path / "v3-existing.db"
+    env = {**os.environ, "VULNRADAR_DATABASE_URL": f"sqlite:///{path}"}
+    def upgrade(target):
+        subprocess.run([sys.executable, "-m", "alembic", "-c", str(root / "alembic.ini"), "upgrade", target], cwd=root, env=env, check=True, capture_output=True)
+    upgrade("0005")
+    with sqlite3.connect(path) as connection:
+        connection.execute("INSERT INTO projects (id,name,path) VALUES (1,'Existing','/preserved')")
+        connection.execute("INSERT INTO scans (id,project_id,kind,status,result,created_at) VALUES (1,1,'sast','completed','{}','2026-01-01')")
+        connection.execute("INSERT INTO findings (id,project_id,scan_id,kind,fingerprint,file,severity,status,evidence,fixed_versions,first_seen,last_seen,owner,due_at,risk_expires_at,remediation_plan) VALUES (1,1,1,'sast','id','a.py','HIGH','accepted','{}','[]','2026-01-01','2026-01-01','Owner','2027-01-01','2027-02-01','Preserved plan')")
+        before = connection.execute("SELECT * FROM findings").fetchall()
+    upgrade("head")
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("SELECT * FROM findings").fetchall() == before
+        tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        assert {"affected_products", "product_watches", "finding_states"} <= tables

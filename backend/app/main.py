@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session as DBSession
 from .config import settings
 from .db import Activity, Advisory, Alias, Project, Scan, Session, Source, Vulnerability, Watch, engine, get_session, now
 from .security import authorized_path
-from .services.intelligence import query_osv, upsert
+from .services.intelligence import query_osv, upsert, normalize
 from .services.monitoring import check_watch, prioritize, get_epss_threshold
 from .services.reporting import cyclone_dx, sarif
 from .services.evidence import evidence
@@ -28,6 +28,9 @@ from .operations import router as operations_router
 from .reports import router as reports_router
 from .services.findings import backfill
 from .services.notifications import notification_loop
+from .services.products import router as products_router, product_rows, ensure_product_index
+from .services.history import ensure_baseline
+from .services.oci import router as oci_router
 
 
 @asynccontextmanager
@@ -40,6 +43,8 @@ async def lifespan(app):
             scan.result = {"warnings": ["Execução interrompida; envie uma nova análise"]}
         session.commit()
         backfill(session)
+        ensure_baseline(session)
+        ensure_product_index(session)
     spawn(scheduler_loop())
     spawn(notification_loop())
     yield
@@ -52,6 +57,8 @@ async def lifespan(app):
 app = FastAPI(title="VulnRadar", version=__version__, lifespan=lifespan)
 app.include_router(operations_router)
 app.include_router(reports_router)
+app.include_router(products_router)
+app.include_router(oci_router)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 app.add_middleware(CORSMiddleware, allow_origins=settings.origins, allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["Content-Type", "X-VulnRadar-Client"])
 
@@ -123,6 +130,9 @@ def feed(
     published_before: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
     modified_after: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
     package: str | None = None,
+    vendor: str | None = None,
+    product: str | None = None,
+    version: str | None = None,
     project_id: int | None = None,
     cvss_max: float | None = Query(None, ge=0, le=10),
     epss_max: float | None = Query(None, ge=0, le=1),
@@ -131,6 +141,13 @@ def feed(
     session: DBSession = Depends(get_session),
 ):
     stmt = filtered(q, severity, kev, triage)
+    product_matches = {}
+    if vendor or product or version:
+        for row in product_rows(session, vendor, product, version):
+            identifier = row["vulnerability_id"]
+            if identifier not in product_matches or row["version_match"] == "affected":
+                product_matches[identifier] = row["version_match"]
+        stmt = stmt.where(Vulnerability.id.in_(product_matches))
     if ecosystem:
         stmt = stmt.where(
             Vulnerability.id.in_(select(Advisory.vulnerability_id).join(AffectedPackage, AffectedPackage.advisory_id == Advisory.id).where(AffectedPackage.ecosystem == ecosystem))
@@ -170,7 +187,7 @@ def feed(
         value = {"ecosystem": component.ecosystem, "package": component.package}
         if value not in packages.setdefault(identifier, []):
             packages[identifier].append(value)
-    return {"items": [{**jsonable_encoder(item), "components": packages.get(item.id, [])} for item in items], "total": total, "page": page, "page_size": page_size}
+    return {"items": [{**jsonable_encoder(item), "components": packages.get(item.id, []), "version_match": product_matches.get(item.id)} for item in items], "total": total, "page": page, "page_size": page_size, "version_scope": "Versões de produto usam CPE NVD; condições de plataforma/ordenação não verificáveis permanecem desconhecidas" if vendor or product or version else None}
 
 
 @app.get("/api/vulnerabilities/{identifier}")
@@ -181,7 +198,8 @@ def detail(identifier: str, session: DBSession = Depends(get_session)):
         raise HTTPException(404, "Vulnerabilidade não coletada")
     advisories = list(session.scalars(select(Advisory).where(Advisory.vulnerability_id == item.id)))
     return {
-        "evidence": [evidence(advisory.source, advisory.payload) for advisory in advisories],
+        "evidence": [{**evidence(advisory.source, advisory.payload), "updated_at": normalize(advisory.source, advisory.payload).get("modified") if advisory.source in {"osv", "github", "nvd", "trivy", "grype"} else advisory.payload.get("dateAdded")} for advisory in advisories],
+        "source_assessments": [{"source": advisory.source, "severity": normalize(advisory.source, advisory.payload)["severity"], "cvss": normalize(advisory.source, advisory.payload)["cvss"], "modified": normalize(advisory.source, advisory.payload).get("modified")} for advisory in advisories if advisory.source in {"osv", "github", "nvd", "trivy", "grype"}],
         "related_projects": [
             {
                 "finding_id": finding.id,
@@ -319,7 +337,7 @@ async def package_search(body: PackageQuery, session: DBSession = Depends(get_se
         run.duration_ms = round((time.monotonic() - started) * 1000)
         session.commit()
         raise HTTPException(502, "Consulta OSV incompleta; não é possível concluir ausência de vulnerabilidades")
-    items = list({item.id: item for item in [upsert(session, "osv", row) for row in rows]}.values())
+    items = list({item.id: item for item in [upsert(session, "osv", row, context="package_lookup") for row in rows]}.values())
     source.status = run.status = "success"
     source.count = run.processed_count = len(rows)
     source.error = None
@@ -444,6 +462,10 @@ def get_settings():
         "auto_sync": settings.auto_sync,
         "allowed_roots": settings.allowed_roots,
         "semgrep_available": bool(shutil.which("semgrep")),
+        "trivy_available": bool(shutil.which("trivy")),
+        "grype_available": bool(shutil.which("grype")),
+        "oci_registries": settings.oci_registries,
+        "oci_timeout": settings.oci_timeout,
         "webhook_configured": bool(settings.webhook_url and settings.webhook_allowed_hosts),
         "webhook_format": settings.webhook_format,
         "nvd_key_configured": bool(settings.nvd_api_key),
@@ -504,7 +526,7 @@ def export_scan(identifier: int, format: Literal["json", "sarif", "cyclonedx"] =
         raise HTTPException(404)
     if format == "sarif" and scan.kind not in {"sast", "combined"}:
         raise HTTPException(422, "SARIF disponível somente para SAST")
-    if format == "cyclonedx" and scan.kind not in {"sca", "combined"}:
+    if format == "cyclonedx" and scan.kind not in {"sca", "combined", "oci"}:
         raise HTTPException(422, "CycloneDX disponível somente para inventário SCA")
     data = scan.result
     if format == "sarif":
