@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, create_engine, event
+from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint, create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from .config import settings
 
@@ -67,6 +67,8 @@ class Watch(Base):
     ecosystem: Mapped[str]
     package: Mapped[str] = mapped_column(index=True)
     version: Mapped[str | None]
+    min_severity: Mapped[str] = mapped_column(String(20), default="LOW")
+    alerts_enabled: Mapped[bool] = mapped_column(default=True)
 
 
 class Project(Base):
@@ -85,6 +87,8 @@ class Scan(Base):
     result: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    stage: Mapped[str] = mapped_column(String(40), default="queued")
+    indexed: Mapped[bool] = mapped_column(default=False)
 
 
 def make_engine(url):
@@ -122,3 +126,81 @@ class AffectedPackage(Base):
     ecosystem: Mapped[str] = mapped_column(String(80), index=True)
     package: Mapped[str] = mapped_column(String(300), index=True)
     constraints: Mapped[dict] = mapped_column(JSON)
+
+
+class InventoryComponent(Base):
+    __tablename__ = "inventory_components"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    scan_id: Mapped[int] = mapped_column(ForeignKey("scans.id"), index=True)
+    ecosystem: Mapped[str] = mapped_column(String(80), index=True)
+    package: Mapped[str] = mapped_column(String(300), index=True)
+    version: Mapped[str] = mapped_column(String(150))
+    file: Mapped[str] = mapped_column(Text, default="")
+    direct: Mapped[bool | None]
+    query_status: Mapped[str] = mapped_column(String(30), default="unknown")
+
+
+class Finding(Base):
+    __tablename__ = "findings"
+    __table_args__ = (UniqueConstraint("project_id", "kind", "fingerprint", name="uq_finding_identity"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    scan_id: Mapped[int] = mapped_column(ForeignKey("scans.id"), index=True)
+    fingerprint: Mapped[str] = mapped_column(String(64), index=True)
+    kind: Mapped[str] = mapped_column(String(10), index=True)
+    vulnerability_id: Mapped[str | None] = mapped_column(ForeignKey("vulnerabilities.id"), index=True)
+    package: Mapped[str | None] = mapped_column(String(300))
+    ecosystem: Mapped[str | None] = mapped_column(String(80))
+    version: Mapped[str | None] = mapped_column(String(150))
+    file: Mapped[str] = mapped_column(Text, default="")
+    line: Mapped[int | None]
+    rule_id: Mapped[str | None] = mapped_column(String(300))
+    severity: Mapped[str] = mapped_column(String(20), default="UNKNOWN", index=True)
+    status: Mapped[str] = mapped_column(String(50), default="new", index=True)
+    evidence: Mapped[dict] = mapped_column(JSON)
+    fixed_versions: Mapped[list] = mapped_column(JSON, default=list)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class FindingObservation(Base):
+    __tablename__ = "finding_observations"
+    __table_args__ = (UniqueConstraint("scan_id", "finding_id", name="uq_scan_finding"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scan_id: Mapped[int] = mapped_column(ForeignKey("scans.id"), index=True)
+    finding_id: Mapped[int] = mapped_column(ForeignKey("findings.id"), index=True)
+    evidence: Mapped[dict] = mapped_column(JSON)
+
+
+class PlatformSetting(Base):
+    __tablename__ = "platform_settings"
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    value: Mapped[dict] = mapped_column(JSON)
+
+
+class SyncRun(Base):
+    __tablename__ = "sync_runs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source: Mapped[str] = mapped_column(String(30), index=True)
+    status: Mapped[str] = mapped_column(String(30), default="running")
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    duration_ms: Mapped[int | None]
+    new_count: Mapped[int] = mapped_column(default=0)
+    updated_count: Mapped[int] = mapped_column(default=0)
+    processed_count: Mapped[int] = mapped_column(default=0)
+    pages: Mapped[int] = mapped_column(default=0)
+    error: Mapped[str | None] = mapped_column(Text)
+
+
+class NotificationDelivery(Base):
+    __tablename__ = "notification_deliveries"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    activity_id: Mapped[int] = mapped_column(ForeignKey("activity.id"), unique=True)
+    channel: Mapped[str] = mapped_column(String(20), default="webhook")
+    status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
+    attempts: Mapped[int] = mapped_column(default=0)
+    last_attempt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    next_attempt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    error: Mapped[str | None] = mapped_column(String(200))

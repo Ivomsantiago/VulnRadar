@@ -90,3 +90,24 @@ Riscos residuais: alterações concorrentes na árvore de arquivos/junctions Win
 ## Validação de distribuição
 
 Linux local validado com testes e Chromium. Docker, PostgreSQL e PyInstaller Windows ainda não foram executados. CI/workflows são configuração proposta, não evidência de execução remota. Backup usa sqlite3.backup; restauração automática ainda não implementada.
+
+## Evolução operacional V2
+
+Migrações 0003 e 0004 adicionam:
+
+- InventoryComponent: observação de componente por projeto/scan, versão, manifesto e estado da consulta.
+- Finding: identidade por projeto/motor/fingerprint, vulnerabilidade opcional, severidade, arquivo/linha, correções e estado de remediação.
+- FindingObservation: evidência de cada achado em uma execução; evita perder o histórico ao atualizar a última observação.
+- PlatformSetting: preferências e agendamento validados. Raízes, credenciais e allowlists continuam configuração confiável do servidor.
+- SyncRun: tentativa, duração, páginas e contagens por coleta. Valores OSV não contabilizados são apresentados como desconhecidos.
+- NotificationDelivery: vínculo único ao alerta, tentativas, estados e próxima tentativa, sem armazenar URL/token.
+
+O backfill inicial é idempotente e preserva o JSON de scans anteriores. Alias explícito pode consolidar vulnerabilidades e atualizar suas referências nos achados. A resolução por ausência exige motor e escopo comparáveis, análise completa e consultas concluídas. Falha parcial ou mudança desconhecida de regras não prova correção.
+
+A API operacional fica em operations.py, com serviços de findings, projetos, monitoramento e notificações. APIs principais adicionais: `/api/exposure`, `/api/findings`, `/api/inventory`, `/api/technologies`, `/api/search/universal`, `/api/directories`, `/api/projects/{id}/inspect`, `/api/scans/{id}`, `/api/scans/{id}/cancel`, `/api/sync-runs`, `/api/preferences`, `/api/scheduler` e `/api/notification-deliveries`.
+
+Filas de prioridade usam somente achados locais. O limiar EPSS persistido é aplicado de forma consistente à ordenação/listagem/detalhe. Severidade e métricas originais permanecem nas evidências. CVSS OSV é calculado a partir de vetor válido; vetor inválido continua desconhecido.
+
+O frontend usa Tailwind, tokens CSS, consultas abortáveis e componentes próprios. Modal/Drawer usam dialog nativo para foco, Escape e fundo inerte; Tabs têm roving focus. Tabelas de achados/vulnerabilidades oferecem cartões em mobile. Rotas antigas continuam compatíveis.
+
+Webhook: apenas destino HTTPS explícito no servidor, allowlist, rejeição de DNS/IP privado e de redirects, corpo com whitelist, timeout, intervalo e chave de idempotência. O DNS/egress do ambiente continua parte da fronteira de confiança. Nenhum dado de código/evidência é enviado no payload de notificação.

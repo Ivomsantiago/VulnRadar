@@ -19,13 +19,11 @@ describe("API client", () => {
   it("preserves explicit incomplete-query errors", async () => {
     vi.stubGlobal(
       "fetch",
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(JSON.stringify({ detail: "Consulta incompleta" }), {
-            status: 502,
-          }),
-        ),
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ detail: "Consulta incompleta" }), {
+          status: 502,
+        }),
+      ),
     );
     await expect(api("/search/package", "POST", {})).rejects.toThrow(
       "Consulta incompleta",

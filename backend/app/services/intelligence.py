@@ -2,11 +2,14 @@
 
 import asyncio
 import random
+import time
 from datetime import datetime, timedelta, timezone
 import httpx
-from sqlalchemy import select, delete
+from cvss import CVSS2, CVSS3, CVSS4
+from cvss.exceptions import CVSSError
+from sqlalchemy import select, delete, update
 from ..config import settings
-from ..db import Activity, Advisory, Alias, Source, Vulnerability, AffectedPackage
+from ..db import Activity, Advisory, Alias, Source, Vulnerability, AffectedPackage, Finding, SyncRun
 from .evidence import evidence
 
 URLS = {
@@ -43,9 +46,26 @@ async def fetch_kev(client):
     return response.json()
 
 
+def severity_name(value):
+    normalized = str(value or "UNKNOWN").upper()
+    normalized = {"MODERATE": "MEDIUM", "IMPORTANT": "HIGH", "NEGLIGIBLE": "LOW"}.get(normalized, normalized)
+    return normalized if normalized in {"CRITICAL", "HIGH", "MEDIUM", "LOW"} else "UNKNOWN"
+
+
 def normalize(source, raw):
     if source == "osv":
         scores = raw.get("severity", [])
+        score, derived_severity = None, "UNKNOWN"
+        for metric in sorted(scores, key=lambda value: {"CVSS_V4": 4, "CVSS_V3": 3, "CVSS_V2": 2}.get(value.get("type"), 0), reverse=True):
+            parser = {"CVSS_V4": CVSS4, "CVSS_V3": CVSS3, "CVSS_V2": CVSS2}.get(metric.get("type"))
+            if parser is None:
+                continue
+            try:
+                parsed = parser(metric.get("score", ""))
+                score, derived_severity = parsed.scores()[0], parsed.severities()[0].upper()
+                break
+            except (CVSSError, ValueError, TypeError):
+                continue
         return dict(
             id=raw["id"],
             aliases=raw.get("aliases", []),
@@ -53,8 +73,10 @@ def normalize(source, raw):
             description=raw.get("details", ""),
             published=raw.get("published"),
             modified=raw.get("modified"),
-            severity=raw.get("database_specific", {}).get("severity", "UNKNOWN").upper(),
-            cvss=None,
+            severity=severity_name(raw.get("database_specific", {}).get("severity"))
+            if severity_name(raw.get("database_specific", {}).get("severity")) != "UNKNOWN"
+            else severity_name(derived_severity),
+            cvss=score,
             affected=raw.get("affected", []),
             references=raw.get("references", []),
             scores=scores,
@@ -66,7 +88,7 @@ def normalize(source, raw):
             aliases=[i["value"] for i in raw.get("identifiers", [])],
             title=raw.get("summary", raw["ghsa_id"]),
             description=raw.get("description", ""),
-            severity=raw.get("severity", "UNKNOWN").upper(),
+            severity=severity_name(raw.get("severity")),
             cvss=cvss.get("score"),
             published=raw.get("published_at"),
             modified=raw.get("updated_at"),
@@ -89,7 +111,7 @@ def normalize(source, raw):
         description=text,
         published=cve.get("published"),
         modified=cve.get("lastModified"),
-        severity=severity,
+        severity=severity_name(severity),
         cvss=score,
         affected=cve.get("configurations", []),
         references=cve.get("references", []),
@@ -121,6 +143,7 @@ def upsert(session, source, raw):
             advisory.vulnerability_id = canonical
         vulnerability.kev = vulnerability.kev or old.kev
         vulnerability.epss = vulnerability.epss if vulnerability.epss is not None else old.epss
+        session.execute(update(Finding).where(Finding.vulnerability_id == old_id).values(vulnerability_id=canonical))
         session.flush()
         session.delete(old)
     for identifier in identifiers:
@@ -128,12 +151,22 @@ def upsert(session, source, raw):
             session.add(Alias(id=identifier, vulnerability_id=canonical))
     key = f"{source}:{item['id']}"
     advisory = session.get(Advisory, key)
+    previous = advisory.payload if advisory else None
     changed = advisory is None or advisory.payload != raw
     if advisory is None:
         session.add(Advisory(id=key, source=source, vulnerability_id=canonical, payload=raw))
     else:
         advisory.payload = raw
     if changed:
+        if previous:
+            old_fixes = {v for package in evidence(source, previous)["packages"] for v in package["fixed"]}
+            new_fixes = {v for package in evidence(source, raw)["packages"] for v in package["fixed"]}
+            if new_fixes - old_fixes:
+                session.add(
+                    Activity(
+                        kind="alert", subject=canonical, data={"reason": "Nova versão corrigida informada pela fonte", "source": source, "versions": sorted(new_fixes - old_fixes)}
+                    )
+                )
         session.flush()
         session.execute(delete(AffectedPackage).where(AffectedPackage.advisory_id == key))
         for package in evidence(source, raw)["packages"]:
@@ -148,14 +181,30 @@ def upsert(session, source, raw):
         session.add(Activity(kind="vulnerability.updated" if not new else "vulnerability.new", subject=canonical, data={"source": source}))
         if new and (vulnerability.severity in {"CRITICAL", "HIGH"}):
             session.add(Activity(kind="alert", subject=canonical, data={"reason": "Nova vulnerabilidade alta ou crítica", "source": source}))
+    vulnerability.severity = severity_name(vulnerability.severity)
+    if vulnerability.cvss is None and item["cvss"] is not None:
+        vulnerability.cvss = item["cvss"]
     session.flush()
     return vulnerability
 
 
 async def query_osv(ecosystem, package, version):
     async with httpx.AsyncClient(timeout=30) as client:
-        response = await request(client, "POST", URLS["osv"], json={"package": {"ecosystem": ecosystem, "name": package}, "version": version})
-        return response.json().get("vulns", [])
+        payload = {"package": {"ecosystem": ecosystem, "name": package}}
+        if version:
+            payload["version"] = version
+        rows, token = [], None
+        while True:
+            if token:
+                payload["page_token"] = token
+            response = await request(client, "POST", URLS["osv"], json=payload)
+            body = response.json()
+            rows.extend(body.get("vulns", []))
+            token = body.get("next_page_token")
+            if not token:
+                return rows
+            if len(rows) > 10000:
+                raise ValueError("Consulta OSV excede o limite de resultados; refine com uma versão")
 
 
 async def sync_source(session, source):
@@ -163,10 +212,17 @@ async def sync_source(session, source):
     if state is None:
         state = Source(id=source)
         session.add(state)
+    previous_status = state.status
     state.status = "running"
     state.last_run = datetime.now(timezone.utc).isoformat()
     session.commit()
-    count = 0
+    count, new_count, updated_count, pages = 0, 0, 0, 0
+    committed = (0, 0, 0, 0)
+    started = time.monotonic()
+    run = SyncRun(source=source)
+    session.add(run)
+    session.commit()
+    run_id = run.id
     checkpoint = datetime.now(timezone.utc).isoformat()
     try:
         async with httpx.AsyncClient(timeout=45, headers={"User-Agent": "VulnRadar/0.1"}) as client:
@@ -184,15 +240,25 @@ async def sync_source(session, source):
                     body = response.json()
                     rows = body.get("vulnerabilities", []) if source == "nvd" else body
                     for row in rows:
+                        identifier = normalize(source, row)["id"]
+                        existing = session.get(Advisory, f"{source}:{identifier}")
+                        if existing is None:
+                            new_count += 1
+                        elif existing.payload != row:
+                            updated_count += 1
                         upsert(session, source, row)
                         count += 1
+                    pages += 1
+                    run.processed_count, run.new_count, run.updated_count, run.pages = count, new_count, updated_count, pages
                     session.commit()  # Retain successful pages if a later request fails.
+                    committed = (count, new_count, updated_count, pages)
                     page += 1
                     if (source == "nvd" and page * 2000 >= body.get("totalResults", 0)) or (source == "github" and 'rel="next"' not in response.headers.get("Link", "")):
                         break
                     await asyncio.sleep(0.2 if source == "github" or settings.nvd_api_key else 6)
             elif source == "kev":
                 rows = (await fetch_kev(client))["vulnerabilities"]
+                pages = 1
                 for row in rows:
                     identifier = row["cveID"]
                     alias = session.get(Alias, identifier)
@@ -208,19 +274,25 @@ async def sync_source(session, source):
                     key = f"kev:{identifier}"
                     advisory = session.get(Advisory, key)
                     if advisory:
+                        if advisory.payload != row:
+                            updated_count += 1
                         advisory.payload = row
                     else:
+                        new_count += 1
                         session.add(Advisory(id=key, vulnerability_id=vulnerability.id, source="kev", payload=row))
                     count += 1
             elif source == "epss":
                 ids = list(session.scalars(select(Alias.id).where(Alias.id.like("CVE-%"))))
                 for index in range(0, len(ids), 100):
                     rows = (await request(client, "GET", URLS[source], params={"cve": ",".join(ids[index : index + 100])})).json()["data"]
+                    pages += 1
                     for row in rows:
                         alias = session.get(Alias, row["cve"])
                         vulnerability = session.get(Vulnerability, alias.vulnerability_id)
+                        if vulnerability.epss != float(row["epss"]):
+                            updated_count += 1
+                            session.add(Activity(kind="epss", subject=vulnerability.id, data=row))
                         vulnerability.epss = float(row["epss"])
-                        session.add(Activity(kind="epss", subject=vulnerability.id, data=row))
                         count += 1
             else:
                 raise ValueError("Fonte sem coleta global; OSV é consultado por pacote e versão")
@@ -229,11 +301,25 @@ async def sync_source(session, source):
         session.commit()
     except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
         session.rollback()
+        count, new_count, updated_count, pages = committed
         state = session.get(Source, source)
-        state.status = "failed"
+        state.status = "partial" if count else "failed"
         # Keep upstream bodies, authorization headers and credentials out of persisted errors.
         state.error = f"{type(exc).__name__}: falha na fonte; dados anteriores preservados"
         state.count = count
+        if previous_status not in {"failed", "partial"}:
+            session.add(
+                Activity(
+                    kind="alert", subject=f"source:{source}", data={"reason": "Falha de sincronização; dados anteriores preservados", "source": source, "status": state.status}
+                )
+            )
         session.add(Activity(kind="sync", subject=source, data={"status": "failed", "count": count}))
         session.commit()
+    run = session.get(SyncRun, run_id)
+    run.status = state.status
+    run.completed_at = datetime.now(timezone.utc)
+    run.duration_ms = round((time.monotonic() - started) * 1000)
+    run.processed_count, run.new_count, run.updated_count, run.pages = count, new_count, updated_count, pages
+    run.error = state.error
+    session.commit()
     return state

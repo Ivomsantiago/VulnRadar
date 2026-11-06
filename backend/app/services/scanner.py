@@ -143,8 +143,8 @@ SUPPORTED = {
 }
 
 
-async def sca(root):
-    inventory, findings, warnings = [], [], []
+def inventory_root(root):
+    inventory, warnings = [], []
     for path in safe_files(root):
         if path.name not in SUPPORTED and not path.name.endswith(".cdx.json"):
             continue
@@ -158,6 +158,16 @@ async def sca(root):
             warnings.append(f"Falha no parser {path.relative_to(root)}: {type(exc).__name__}")
     if not inventory:
         warnings.append("Nenhuma dependência com versão resolvida encontrada")
+    return inventory, warnings
+
+
+async def sca(root, progress=None):
+    if progress:
+        await progress("inventory")
+    inventory, warnings = await asyncio.to_thread(inventory_root, root)
+    findings = []
+    if progress:
+        await progress("advisories")
     cache = {}
     for item in inventory:
         key = (item["ecosystem"], item["package"], item["version"])
@@ -173,13 +183,16 @@ async def sca(root):
     return {"inventory": inventory, "findings": findings, "warnings": warnings, "coverage": "partial" if warnings else "complete", "engine": "OSV"}
 
 
-async def sast(root):
+async def sast(root, progress=None):
+    if progress:
+        await progress("sast")
     executable = shutil.which("semgrep")
     if not executable:
         raise ValueError("Semgrep não instalado. Instale com pip install semgrep em ambiente isolado")
     # Scan a bounded snapshot: Semgrep never traverses the original tree or symlinks.
     with tempfile.TemporaryDirectory(prefix="vulnradar-sast-") as temporary:
         snapshot = Path(temporary)
+        scope = []
         for path in safe_files(root):
             relative = path.relative_to(root)
             target = snapshot / relative
@@ -193,6 +206,7 @@ async def sast(root):
             if len(content) > settings.max_file_bytes:
                 raise ValueError("Arquivo excede o limite")
             target.write_bytes(content)
+            scope.append(relative.as_posix())
         process = await asyncio.create_subprocess_exec(
             executable,
             "scan",
@@ -211,16 +225,56 @@ async def sast(root):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
+
+        async def bounded_read(stream, maximum):
+            output = bytearray()
+            while chunk := await stream.read(65536):
+                output.extend(chunk)
+                if len(output) > maximum:
+                    raise ValueError("Saída do mecanismo excede o limite de recursos")
+            return bytes(output)
+
+        output_tasks = [
+            asyncio.create_task(bounded_read(process.stdout, settings.max_file_bytes * 2)),
+            asyncio.create_task(bounded_read(process.stderr, 1_000_000)),
+            asyncio.create_task(process.wait()),
+        ]
         try:
-            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=settings.scan_timeout)
-        except (asyncio.TimeoutError, asyncio.CancelledError):
-            process.kill()
+            stdout, stderr, _ = await asyncio.wait_for(asyncio.gather(*output_tasks), timeout=settings.scan_timeout)
+        except (asyncio.TimeoutError, asyncio.CancelledError, ValueError):
+            if process.returncode is None:
+                process.kill()
             await process.wait()
+            for task in output_tasks:
+                task.cancel()
+            await asyncio.gather(*output_tasks, return_exceptions=True)
             raise
         if process.returncode != 0:
             raise ValueError(f"Semgrep terminou com código {process.returncode}")
         data = json.loads(stdout)
+        local_rules = []
+        for rule_file in sorted(settings.semgrep_rules.glob("*.y*ml")):
+            local_rules.extend(rule.get("id") for rule in yaml.safe_load(rule_file.read_text()).get("rules", []) if rule.get("id"))
+        for finding in data.get("results", []):
+            original = finding.get("check_id", "")
+            local = next((name for name in sorted(local_rules, key=len, reverse=True) if original == name or original.endswith("." + name)), original)
+            finding["original_check_id"], finding["check_id"] = original, local
+            relative = finding.get("path", "")
+            source = (snapshot / relative).resolve()
+            if source.is_relative_to(snapshot) and source.is_file():
+                lines = source.read_text(encoding="utf-8", errors="replace").splitlines()
+                start = max(0, finding.get("start", {}).get("line", 1) - 2)
+                end = min(len(lines), finding.get("end", {}).get("line", start + 1) + 1)
+                snippet = "\n".join(f"{index + 1}: {lines[index]}" for index in range(start, min(end, start + 12)))
+                snippet = re.sub(r"(?i)((?:password|secret|api[_-]?key|token)\s*=\s*)[\"'][^\"']+[\"']", r"\1'<redacted>'", snippet)
+                snippet = re.sub(r"(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})", "<redacted>", snippet)
+                finding.setdefault("extra", {})["lines"] = snippet[:6000]
+    import hashlib
+
+    rules_digest = hashlib.sha256(b"".join(rule.read_bytes() for rule in sorted(settings.semgrep_rules.glob("*.y*ml")))).hexdigest()
     return {
+        "scope": sorted(scope),
+        "rules_digest": rules_digest,
         "findings": data.get("results", []),
         "warnings": data.get("errors", []),
         "coverage": "partial" if data.get("errors") else "rules-only",
