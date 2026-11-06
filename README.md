@@ -1,33 +1,25 @@
 # VulnRadar
 
-Plataforma local de Application Security e inteligência de vulnerabilidades, em desenvolvimento. Backend FastAPI/SQLAlchemy, frontend React/TypeScript/Vite e SQLite com migrações Alembic. Licença escolhida: MIT.
+Plataforma local de Application Security e Vulnerability Intelligence. A V2 organiza investigação, exposição de aplicações e remediação com evidências de análises, preservando a distinção entre vulnerabilidades públicas e achados dos seus projetos.
 
-**A especificação completa ainda não está concluída.** Consulte [estado da implementação](docs/IMPLEMENTATION_STATUS.md) para cobertura, validações e pendências. Não há dados demonstrativos no banco operacional.
+**Uso local.** Não exponha a aplicação diretamente na internet. Autenticação multiusuário e isolamento remoto de scanners não estão implementados. [Limitações e estado da implementação](docs/IMPLEMENTATION_STATUS.md). Licença MIT.
 
-![Dashboard real, base ainda sem coleta](docs/screenshots/dashboard.png)
+![Dashboard V2 — captura real de servidor de validação isolado](docs/screenshots/v2/1440/dashboard.png)
 
-## Funcionalidades presentes
+## Fluxos disponíveis
 
-- Dashboard com contadores, severidades, gráfico das publicações coletadas e estado das fontes.
-- Feed paginado, pesquisa por texto/identificadores/aliases/pacotes, filtros avançados por fonte, ecossistema, CVSS, EPSS, data, triagem e listagem KEV.
-- Conectores NVD, GitHub Advisory, CISA KEV e FIRST EPSS; OSV por pacote/versão. As cinco fontes passaram na suíte de integração real; o KEV usa o espelho oficial CISA no GitHub quando o site principal falha.
-- Evidências originais por fonte; deduplicação por aliases explícitos, sem unir registros por título.
-- Busca OSV por pacote e versão, com erros de consulta incompleta visíveis.
-- Watchlist persistente, verificação manual por versão e alertas locais deduplicados; checagem recorrente quando coleta automática estiver habilitada.
-- Cadastro de repositórios dentro de raízes autorizadas, jobs de scan, histórico e resultados persistidos.
-- SCA com package-lock, Yarn v1/estrutura moderna básica, pnpm v6/v9 básico, requirements com pins, Poetry, Pipfile, Cargo, Composer, go.mod, POM básico, Gradle lock e NuGet lock; CycloneDX JSON com PURLs suportados.
-- Semgrep com seis regras locais iniciais; snapshot limitado, sem executar código do alvo e sem enviar seu conteúdo a serviços externos.
-- Detalhamento com pacotes afetados, correções e referências por fonte, além de dados originais; triagem com justificativa e histórico; priorização explicável preliminar.
-- Eventos SSE, central de alertas e histórico operacional.
-- CSV/JSON de vulnerabilidades, JSON de scans, SARIF SAST e CycloneDX do inventário SCA.
+- **Overview:** indicadores derivados de achados locais, fila operacional, inteligência global em seção separada, gráficos com períodos 7/30/60/90 dias, estado das fontes e atividade recente. Sem projetos/análises, mostra informação desconhecida em vez de substituir por CVEs globais.
+- **Inteligência:** feed paginado, busca por aliases/pacotes, filtros combinados em drawer, chips, favoritos locais, colunas, densidade, seleção/exportação e ordenação no servidor. Detalhes em abas: resumo, componentes, exploração, projetos e histórico.
+- **Busca universal:** Ctrl+K ou botão da topbar; resultados por vulnerabilidade, pacote e repositório. Consulta OSV por pacote com versão opcional.
+- **Application Security:** seleção de pastas autorizadas, detecção de linguagens/lockfiles, escolha SCA/SAST/combinada, pré-requisitos, etapas reais, cancelamento, inventário e resultados por ferramenta.
+- **Remediação:** achados normalizados por projeto, evidências preservadas por execução, filas de trabalho e justificativas. Análise parcial nunca resolve um achado apenas por ausência.
+- **Monitoramento:** watchlist com severidade mínima, alertas opcionais e histórico, verificação manual ou agendada, coletas incrementais e SSE com reconexão.
+- **Plataforma:** histórico de sincronizações, duração/paginação/novos/atualizados quando contabilizados, preferências persistentes, tema claro/escuro e agendamento editável.
+- **Exportações:** CSV/JSON de vulnerabilidades; JSON, SARIF SAST e CycloneDX de inventário por scan. CSV protegido contra fórmulas.
 
-Não há comprovação automática de alcançabilidade ou explorabilidade. Ausência de resultados não comprova segurança. As seis regras SAST não cobrem todas as categorias da especificação.
+## Requisitos e execução Linux
 
-## Requisitos
-
-Python 3.12, Node.js 24 e npm. Chromium para testes de navegação. Semgrep é instalado separadamente para evitar conflitos de dependências com o backend.
-
-### Linux
+Python 3.12, Node.js 24, npm. Semgrep usa ambiente separado para evitar conflitos com as dependências do backend.
 
 Na raiz do checkout:
 
@@ -38,91 +30,118 @@ python3 -m venv .semgrep-venv
 bash scripts/start.sh
 ```
 
-A aplicação atende localmente em `127.0.0.1:8000`. O backend serve os arquivos compilados do frontend. Para desenvolvimento do frontend: `npm --prefix frontend run dev`, usando o proxy Vite para o backend.
+Backend e frontend compilado atendem em `127.0.0.1:8000`. Para desenvolver o frontend, mantenha o backend ativo e execute `npm --prefix frontend run dev`.
 
-### Windows 10/11
+### Autorizar diretórios
 
-No PowerShell, na raiz do checkout:
+Copie `.env.example` para `.env` e informe somente pastas que você pretende analisar:
+
+```dotenv
+VULNRADAR_ALLOWED_ROOTS=["/caminho/dos/projetos"]
+```
+
+Reinicie o serviço. A seleção de pastas da UI navega exclusivamente dentro dessas raízes. O navegador não ganha acesso ao filesystem completo. Em containers, monte explicitamente os diretórios autorizados como somente leitura. Não analise árvores que adversários possam modificar simultaneamente.
+
+## Windows 10/11
+
+Com Python 3.12 e Node 24 instalados, execute na raiz pelo PowerShell:
 
 ```powershell
 .\scripts\install.ps1
 .\scripts\start.ps1 -OpenBrowser
 ```
 
-Scripts e workflow Windows foram preparados, mas **não executados neste ambiente Linux**. A compatibilidade do Semgrep nativo com Windows não foi validada; use uma instalação Linux/WSL para o SAST até validação específica. Não considere esse recurso pronto no executável Windows.
+Configure raízes no `.env` usando lista JSON e barras normais, por exemplo `VULNRADAR_ALLOWED_ROOTS=["C:/Projetos"]`.
 
-O launcher PyInstaller utiliza `%LOCALAPPDATA%\VulnRadar` para o banco persistente. A execução pelos scripts usa `data/` na raiz do checkout por padrão.
+O workflow Windows compilou a versão anterior no GitHub; isso não comprova execução interativa do aplicativo em Windows. O workflow da V2 fará uma nova compilação no PR. Semgrep nativo Windows não foi validado; SAST deve usar uma instalação compatível (por exemplo Linux/WSL). SCA permanece independente do Semgrep.
 
-## Configuração
+## Fontes e configuração
 
-Copie `.env.example` para `.env` na raiz, se necessário. As variáveis começam com `VULNRADAR_`:
-
-| Variável | Uso |
+| Variável `VULNRADAR_…` | Uso |
 | --- | --- |
-| `DATABASE_URL` | SQLite local; SQLAlchemy aceita PostgreSQL com driver instalado separadamente, ainda não validado |
-| `ALLOWED_ROOTS` | Lista JSON de raízes de scan autorizadas; padrão `[]` |
-| `AUTO_SYNC` | `true` habilita coleta recorrente; inicialmente `false` para iniciar sem chamadas externas |
-| `SYNC_MINUTES` | Intervalo de coleta, padrão 60 minutos, mínimo efetivo 5 |
-| `NVD_API_KEY` | Chave NVD opcional |
-| `GITHUB_TOKEN` | Token opcional para limites autenticados de advisories |
-| `MAX_FILES` | Limite de arquivos por árvore, padrão 2000 |
-| `MAX_FILE_BYTES` | Limite de cada arquivo, padrão 5 MB |
-| `SCAN_TIMEOUT` | Prazo de scan em segundos, padrão 120 |
+| `DATABASE_URL` | SQLite padrão `sqlite:///./data/vulnradar.db`; PostgreSQL requer driver/configuração separados e validação |
+| `ALLOWED_ROOTS` | Lista JSON de raízes autorizadas, padrão `[]` |
+| `AUTO_SYNC`, `SYNC_MINUTES` | Valores iniciais do agendamento: desabilitado, 60 minutos; após configuração na UI, o banco guarda a preferência |
+| `NVD_API_KEY`, `GITHUB_TOKEN` | Credenciais opcionais para limites maiores; nunca retornadas ao frontend |
+| `MAX_FILES`, `MAX_FILE_BYTES` | 2000 arquivos e 5 MB por arquivo |
+| `MAX_SCAN_BYTES` | 100 MB agregados por análise |
+| `SCAN_TIMEOUT` | Prazo de análise, padrão 120 segundos |
+| `WEBHOOK_URL` | Destino HTTPS opcional, configurado somente no servidor |
+| `WEBHOOK_ALLOWED_HOSTS` | Lista JSON de hostnames explicitamente autorizados, obrigatória para webhook |
+| `WEBHOOK_FORMAT` | `generic`, `slack` ou `teams` |
+| `NOTIFICATION_INTERVAL_SECONDS` | Intervalo mínimo entre entregas; padrão 60 segundos |
 
-Exemplo de raiz Linux: `VULNRADAR_ALLOWED_ROOTS=["/caminho/projetos-autorizados"]`. No Windows use barras normais ou escape as barras no JSON. Reinicie o backend após alterações. Não use uma raiz que possa ser modificada por adversários simultaneamente.
+Destinos de inteligência: `services.nvd.nist.gov`, `api.github.com`, `api.osv.dev`, `api.first.org`, `www.cisa.gov`, `raw.githubusercontent.com`. O KEV utiliza o espelho oficial `cisagov/kev-data` se o site CISA falhar. A carga inicial NVD/GitHub cobre os últimos 7 dias; coletas seguintes usam checkpoints. KEV usa catálogo completo; EPSS enriquece CVEs coletados; OSV é consulta por pacote, não um feed global.
 
-Fontes necessárias: `services.nvd.nist.gov`, `api.github.com`, `api.osv.dev`, `www.cisa.gov`, `raw.githubusercontent.com` (espelho oficial CISA), `api.first.org`. Os nomes/versões das dependências são enviados ao OSV durante SCA e consulta de versões. Código-fonte não é enviado.
+SCA e watchlist enviam identidade e versão de pacotes ao OSV; código-fonte não é enviado. Semgrep usa regras locais, snapshot sem symlinks, argumentos sem shell, timeout e saída limitada. Trechos de evidência são preservados localmente com redação básica de padrões comuns de credenciais.
 
-A coleta inicial NVD/GitHub cobre os últimos 7 dias; as seguintes usam checkpoints. KEV usa catálogo completo; EPSS enriquece somente CVEs já coletados. OSV não é apresentado como feed global.
+### Webhooks opcionais
 
-## Testes
+Configure o destino e a allowlist no ambiente seguro do servidor; não os inclua no Git. Entregas têm histórico persistido, chave de idempotência, intervalo e até três tentativas com espera. Redirects e destinos privados são rejeitados. O payload exclui código, caminhos locais e campos arbitrários das ferramentas. Os formatos Slack/Teams usam mensagem textual simples e exigem um endpoint compatível.
+
+Os testes usam transporte simulado; nenhuma notificação externa foi enviada nesta sessão. SMTP ainda não tem adaptador. Não há garantia de exactly-once: o receptor deve respeitar a chave de idempotência.
+
+## Testes e evidência visual
 
 ```bash
 cd backend
 ../.venv/bin/pytest -q
+# Opcional, APIs públicas reais:
+VULNRADAR_LIVE_TESTS=1 ../.venv/bin/pytest -q
 cd ..
 .venv/bin/ruff check backend
 cd frontend
 npm test
 npm run build
-# Com backend ativo e Chromium disponível:
+```
+
+Para navegador, use um **servidor descartável** em outro terminal; ele cria banco e repositório de fixture fora do checkout:
+
+```bash
+# Reproduzível, igual ao CI; OSV fictício isolado, Semgrep real:
+.venv/bin/python scripts/start_test_server.py --mock-osv
+# Depois, em frontend:
 CHROMIUM_PATH=/usr/bin/chromium npx playwright test
 ```
 
-Os testes backend usam banco separado e respostas simuladas nas integrações; o teste Semgrep executa o binário real quando instalado. Os testes de navegação geram capturas reais em `docs/screenshots/`. A suíte de integração real é separada e opt-in: `VULNRADAR_LIVE_TESTS=1 ../.venv/bin/pytest tests/integration -q` em backend. Seus cinco testes ficam ignorados por padrão; a suíte foi executada no ambiente publicado e validou as cinco fontes, incluindo fallback para o espelho oficial KEV.
+Para testar OSV real, omita `--mock-osv`. Uma porta alternativa é aceita por `--port 8001`; defina `VULNRADAR_TEST_URL=http://127.0.0.1:8001` no comando Playwright correspondente. Use um servidor de teste novo quando quiser garantir estado inicial vazio.
 
-## Migrações e backup
+A suíte cobre todas as 17 rotas em 1920, 1440, 1366, 1024, 768 e 390 px, teclado, drawers, filtros, favoritos, watchlist, análise combinada, triagem e exportação. Axe verifica automaticamente critérios WCAG A/AA selecionados. Isso não equivale a certificação ou auditoria humana completa de WCAG 2.2 AA.
+
+[Galeria e contexto das capturas](docs/screenshots/v2/README.md). A galeria versionada foi capturada em instância de validação com fixture de repositório e respostas OSV reais; não é um banco de produção. O CI usa OSV fictício e identifica esse modo no log. Dados de teste nunca são inseridos pelo launcher operacional.
+
+## Persistência, migrações e backup
+
+Antes de iniciar uma versão nova:
 
 ```bash
-.venv/bin/python -m alembic -c backend/alembic.ini upgrade head
 .venv/bin/python scripts/backup.py data/vulnradar.db /caminho/backup-novo.db
+.venv/bin/python -m alembic -c backend/alembic.ini upgrade head
 ```
 
-O backup utiliza a API SQLite para preservar consistência com WAL. Restauração: pare o backend, preserve o banco atual, valide a integridade do backup e substitua o banco com o serviço parado; não misture arquivos WAL antigos com o banco restaurado. Não há restauração por upload web.
+A migração V2 é aditiva. Na inicialização, scans antigos são indexados de forma idempotente, preservando seu JSON e a triagem existente. Inventários e observações ficam por execução; achados são por projeto/motor/identidade. Resolução automática só ocorre com execução completa, mesmo motor e escopo comparável. Scans interrompidos ficam registrados como falha e podem ser reenviados; não são retomados automaticamente.
 
-## Docker
+O backup utiliza `sqlite3.backup`, compatível com WAL. Para restaurar, pare o serviço, preserve o banco atual, valide o backup e substitua o banco sem reutilizar WALs antigos. Não há restauração por upload na UI.
+
+## Docker e executável
 
 ```bash
 docker compose up --build
 ```
 
-Configuração preparada, **build Docker não validado nesta sessão**. O Compose publica somente em loopback e não monta repositórios do host. Para scans, adicione montagens somente leitura explícitas e raízes correspondentes. Semgrep não está incluído na imagem base. Não exponha esta aplicação diretamente na internet.
+Docker/Compose estão configurados, mas o build Docker não foi executado nesta sessão. O Compose publica somente em loopback e não monta projetos do host. Semgrep não está incluído na imagem padrão.
 
-## Executável Windows
-
-O workflow `.github/workflows/windows.yml` configura build e upload de artefato, sem publicar releases. Para gerar manualmente em Windows, após build frontend:
+O workflow `.github/workflows/windows.yml` gera artefato PyInstaller, sem publicar releases. Para gerar manualmente em Windows após o build frontend:
 
 ```powershell
 .venv\Scripts\python.exe -m pip install pyinstaller
 .venv\Scripts\pyinstaller.exe --noconfirm --name VulnRadar --onedir --paths backend --collect-submodules app --collect-submodules uvicorn --collect-submodules sqlalchemy --add-data "frontend/dist;frontend/dist" --add-data "backend/alembic;backend/alembic" --add-data "backend/alembic.ini;backend" --add-data "rules;rules" scripts/desktop.py
 ```
 
-Não foi gerado nem testado um executável Windows nesta sessão.
+O launcher empacotado usa `%LOCALAPPDATA%\VulnRadar` para o banco; os scripts de desenvolvimento usam `data/` no checkout. Não houve execução do binário Windows pelo agente.
 
-## Segurança e publicação
+## Arquitetura, segurança e limites
 
-Leia [SECURITY.md](SECURITY.md) e [arquitetura e limites](docs/ARCHITECTURE.md). A API local tem restrição de Host/CORS e cabeçalho explícito para mutações, sem autenticação multiusuário. Exposição remota exige autenticação, autorização, TLS e isolamento de scanners adicionais.
+FastAPI, SQLAlchemy/Alembic, SQLite WAL, httpx, CVSS; React/TypeScript/Vite, Tailwind, TanStack Query, Recharts e componentes acessíveis próprios. Cada tarefa de nuvem usa o checkout existente; não crie worktree sem pedido explícito.
 
-Para publicar no GitHub: revise `git status`, execute os testes, verifique que dados/credenciais/ambientes virtuais estão ignorados e faça commit/push somente com autorização do proprietário. A implementação é enviada em branch de feature para revisão por pull request; não há publicação automática de releases.
-
-Outras capturas reais: [feed](docs/screenshots/feed.png), [busca](docs/screenshots/search.png), [watchlist](docs/screenshots/watchlist.png), [repositórios](docs/screenshots/projects.png).
+Leia [arquitetura](docs/ARCHITECTURE.md), [auditoria V2](docs/V2_AUDIT.md), [estado verificável](docs/IMPLEMENTATION_STATUS.md) e [segurança](SECURITY.md). Há limitações explícitas para CPEs/runtimes, variantes de lockfiles, alcance de regras SAST, implantações remotas e serviços externos. Ausência de correspondência não comprova segurança.

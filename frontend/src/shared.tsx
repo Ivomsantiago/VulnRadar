@@ -15,7 +15,10 @@ export const severityLabel: Record<string, string> = {
 };
 
 export function useData<T>(key: string, path: string) {
-  return useQuery({ queryKey: [key, path], queryFn: () => api<T>(path) });
+  return useQuery({
+    queryKey: [key, path],
+    queryFn: ({ signal }) => api<T>(path, "GET", undefined, { signal }),
+  });
 }
 
 export function Empty({
@@ -46,10 +49,45 @@ export function ErrorBox({ error }: { error: Error | null }) {
   ) : null;
 }
 
+export const statusLabels: Record<string, string> = {
+  delivered: "Entregue",
+  retry: "Aguardando nova tentativa",
+  new: "Novo",
+  pending: "Pendente",
+  investigating: "Em análise",
+  applicable: "Aplicável",
+  not_applicable: "Não aplicável",
+  false_positive: "Falso positivo",
+  planned: "Correção planejada",
+  remediating: "Em remediação",
+  mitigated: "Mitigado",
+  resolved: "Resolvido",
+  accepted: "Risco aceito",
+  running: "Executando",
+  completed: "Concluído",
+  partial: "Parcial",
+  failed: "Falhou",
+  cancelled: "Cancelado",
+  never: "Não consultada",
+  healthy: "Saudável",
+  syncing: "Sincronizando",
+  stale: "Atrasada",
+  unavailable: "Indisponível",
+  success: "Saudável",
+  ready: "Disponível",
+  missing: "Requer atenção",
+  queued: "Pendente",
+  preparing: "Preparando",
+  inventory: "Inventariando",
+  advisories: "Consultando advisories",
+  sast: "Executando SAST",
+  consolidating: "Consolidando",
+  unknown: "Não verificado",
+};
 export function Badge({ value }: { value: string }) {
   return (
     <span className={`badge ${value.toLowerCase()}`}>
-      {severityLabel[value] || value}
+      {severityLabel[value] || statusLabels[value] || value}
     </span>
   );
 }

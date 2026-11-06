@@ -91,3 +91,24 @@ async def test_kev_uses_official_mirror_on_primary_failure():
         data = await fetch_kev(client)
     assert len(data["vulnerabilities"]) == 1
     assert destinations == [URLS["kev"], KEV_MIRROR]
+
+
+def test_osv_cvss_vector_is_computed_and_malformed_vector_stays_unknown():
+    raw = osv()
+    raw["database_specific"] = {}
+    raw["severity"] = [{"type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"}]
+    item = normalize("osv", raw)
+    assert item["cvss"] == 9.8 and item["severity"] == "CRITICAL"
+    raw["severity"][0]["score"] = "invalid"
+    item = normalize("osv", raw)
+    assert item["cvss"] is None and item["severity"] == "UNKNOWN"
+
+
+def test_moderate_source_severity_maps_to_medium_without_losing_original(session):
+    raw = osv()
+    raw["database_specific"]["severity"] = "MODERATE"
+    item = upsert(session, "osv", raw)
+    session.commit()
+    assert item.severity == "MEDIUM"
+    advisory = session.scalar(select(Advisory))
+    assert advisory.payload["database_specific"]["severity"] == "MODERATE"

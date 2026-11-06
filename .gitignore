@@ -14,3 +14,8 @@ playwright-report/
 test-results/
 .semgrep-venv/
 *.tsbuildinfo
+
+# Keep a representative V2 gallery; all viewport captures remain CI artifacts.
+docs/screenshots/v2/*/*.png
+!docs/screenshots/v2/1440/*.png
+!docs/screenshots/v2/*/dashboard.png

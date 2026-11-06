@@ -1,8 +1,11 @@
 import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
+  workers: 1,
   use: {
-    baseURL: "http://127.0.0.1:8000",
+    baseURL: process.env.VULNRADAR_TEST_URL || "http://127.0.0.1:8000",
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
     headless: true,
     launchOptions: {
       executablePath: process.env.CHROMIUM_PATH || "/usr/bin/chromium",

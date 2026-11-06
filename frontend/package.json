@@ -1,6 +1,6 @@
 {
   "name": "vulnradar-web",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,14 +9,17 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.3.5",
     "@tanstack/react-query": "5.106.1",
     "lucide-react": "1.70.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-router-dom": "7.18.5",
-    "recharts": "3.10.1"
+    "recharts": "3.10.1",
+    "tailwindcss": "^4.3.5"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@playwright/test": "1.65.0",
     "@testing-library/jest-dom": "7.0.1",
     "@testing-library/react": "16.3.3",
