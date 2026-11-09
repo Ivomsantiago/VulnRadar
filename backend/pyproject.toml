@@ -9,3 +9,10 @@ line-length = 180
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["app/access.py", "app/privacy.py", "app/security_context.py", "app/http_security.py"]
+follow_imports = "silent"
+ignore_missing_imports = true
+strict = true

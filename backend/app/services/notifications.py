@@ -1,14 +1,16 @@
 """Opt-in webhooks: configured destinations only; no credentials in payload or logs."""
 
 import asyncio
-from datetime import timedelta
+from datetime import datetime, timedelta
 import ipaddress
 import socket
+import smtplib
 from urllib.parse import urlsplit
 import httpx
 from sqlalchemy import or_, select
 from ..config import settings
-from ..db import Activity, NotificationDelivery, Session, now
+from ..db import Activity, NotificationDelivery, PlatformSetting, Session, now, utc_datetime
+from .smtp import send_smtp
 
 
 def validate_destination(url, allowed_hosts):
@@ -36,9 +38,9 @@ async def send_webhook(event, client=None):
     payload = {
         "id": event.id,
         "event": "vulnradar.alert",
-        "subject": event.subject,
+        "subject": str(event.subject)[:240],
         "created_at": event.created_at.isoformat(),
-        "reason": str(event.data.get("reason", "Alerta VulnRadar")),
+        "reason": str(event.data.get("reason", "Alerta VulnRadar"))[:2000],
         "project_id": event.data.get("project_id"),
         "vulnerability": event.data.get("vulnerability"),
     }
@@ -47,23 +49,30 @@ async def send_webhook(event, client=None):
         payload = {"text": text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")}
 
     async def send(connection):
-        response = await connection.post(settings.webhook_url, json=payload, headers={"Idempotency-Key": f"vulnradar-alert-{event.id}"}, follow_redirects=False)
+        # Connect to the already validated address; keep hostname for TLS verification/SNI.
+        # Never allow a second DNS lookup or environment proxy to change the destination.
+        target = httpx.URL(settings.webhook_url).copy_with(host=addresses[0][4][0])
+        response = await connection.post(target, json=payload, headers={"Host": host, "Idempotency-Key": f"vulnradar-alert-{event.id}"}, extensions={"sni_hostname": host}, follow_redirects=False)
         response.raise_for_status()
 
     if client is not None:
         await send(client)
     else:
-        async with httpx.AsyncClient(timeout=10) as connection:
+        async with httpx.AsyncClient(timeout=10, trust_env=False) as connection:
             await send(connection)
 
 
 async def dispatch_once():
-    if not settings.webhook_url:
+    if (settings.notification_channel == "webhook" and not settings.webhook_url) or (settings.notification_channel == "smtp" and not settings.smtp_host):
         return False
     with Session() as session:
         sent = select(NotificationDelivery.activity_id)
-        for identifier in session.scalars(select(Activity.id).where(Activity.kind == "alert", Activity.id.not_in(sent)).order_by(Activity.id).limit(100)):
-            session.add(NotificationDelivery(activity_id=identifier))
+        query = select(Activity.id).where(Activity.kind == "alert", Activity.id.not_in(sent))
+        floor = session.get(PlatformSetting, "notifications.retention_floor")
+        if floor:
+            query = query.where(Activity.created_at >= utc_datetime(datetime.fromisoformat(floor.value["at"])))
+        for identifier in session.scalars(query.order_by(Activity.id).limit(100)):
+            session.add(NotificationDelivery(activity_id=identifier, channel=settings.notification_channel))
         session.commit()
         delivery = session.scalar(
             select(NotificationDelivery)
@@ -77,9 +86,12 @@ async def dispatch_once():
         delivery.attempts += 1
         delivery.last_attempt = now()
         try:
-            await send_webhook(event)
+            if delivery.channel == "smtp":
+                await send_smtp(event)
+            else:
+                await send_webhook(event)
             delivery.status, delivery.error = "delivered", None
-        except (httpx.HTTPError, ValueError, OSError) as exc:
+        except (httpx.HTTPError, ValueError, OSError, smtplib.SMTPException) as exc:
             delivery.status = "failed" if delivery.attempts >= 3 else "retry"
             delivery.error = f"{type(exc).__name__}: entrega não concluída"
             delivery.next_attempt = now() + timedelta(seconds=60 * 2**delivery.attempts)

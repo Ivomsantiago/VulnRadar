@@ -6,7 +6,8 @@ import shutil
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, Field
+from pydantic import Field
+from .schemas import InputModel
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session as DBSession
 from .config import settings
@@ -40,7 +41,15 @@ router = APIRouter(prefix="/api", tags=["Operations V2"])
 
 def finding_priority(finding, vulnerability=None, epss_threshold=0.1):
     if vulnerability:
-        return prioritize(vulnerability, epss_threshold)
+        result = prioritize(vulnerability, epss_threshold)
+        usage = finding.evidence.get("usage") or {}
+        result["reasons"].append("Import estático do pacote observado (heurística)" if usage.get("status") == "observed_import" else "Uso estático ausente ou desconhecido; não reduz risco nem prova código inalcançável")
+        exposed = finding.evidence.get("application_exposed")
+        result["reasons"].append("Exposição externa declarada na análise" if exposed is True else "Exposição declarada como interna na análise" if exposed is False else "Exposição da aplicação não informada")
+        if exposed is True and usage.get("status") == "observed_import" and finding.severity in {"HIGH", "CRITICAL"} and not vulnerability.kev:
+            result["classification"] = "Alta prioridade"
+            result["reasons"].append("Combinação de severidade alta/crítica, import observado e exposição declarada")
+        return result
     return {
         "classification": "Alta prioridade" if finding.severity in {"HIGH", "CRITICAL"} else "Monitoramento",
         "reasons": ["Severidade da regra SAST; explorabilidade depende de investigação"],
@@ -110,6 +119,8 @@ def findings(
             else_=1,
         ).desc(),
         case((Finding.severity == "CRITICAL", 4), (Finding.severity == "HIGH", 3), (Finding.severity == "MEDIUM", 2), else_=1).desc(),
+        case((Finding.evidence["application_exposed"].as_boolean().is_(True), 1), else_=0).desc(),
+        case((Finding.evidence["usage"]["status"].as_string() == "observed_import", 1), else_=0).desc(),
         Finding.last_seen.desc(),
         Finding.id.desc(),
     )
@@ -324,7 +335,8 @@ async def engines():
         osv = "unavailable"
     return {
         "osv": osv,
-        "semgrep": bool(shutil.which("semgrep")),
+        "semgrep": bool(shutil.which("semgrep")) and (settings.access_mode != "team" or settings.allow_local_sast_in_team),
+        "semgrep_policy": "blocked" if settings.access_mode == "team" and not settings.allow_local_sast_in_team else "enabled",
         "trivy": False,
         "grype": False,
         "oci_enabled": False,
@@ -339,7 +351,7 @@ def sync_runs(session: DBSession = Depends(get_session)):
     return list(session.scalars(select(SyncRun).order_by(SyncRun.id.desc()).limit(100)))
 
 
-class Preferences(BaseModel):
+class Preferences(InputModel):
     theme: str = Field("dark", pattern="^(dark|light|system)$")
     density: str = Field("compact", pattern="^(compact|comfortable)$")
     epss_threshold: float = Field(0.1, ge=0, le=1)
@@ -378,7 +390,7 @@ def finding_trend(days: int = Query(30, ge=1, le=90), session: DBSession = Depen
     return [data[key] for key in sorted(data)]
 
 
-class SchedulerInput(BaseModel):
+class SchedulerInput(InputModel):
     enabled: bool = False
     interval_minutes: int = Field(60, ge=5, le=1440)
 

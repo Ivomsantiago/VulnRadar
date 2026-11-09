@@ -16,6 +16,17 @@ jobs = set()
 scan_tasks = {}
 
 
+async def supervise(name, runner):
+    while True:
+        try:
+            await runner()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.error("worker.restarting", extra={"fields": {"stage": name, "error_type": type(exc).__name__}})
+        await asyncio.sleep(5)
+
+
 def spawn(coro):
     task = asyncio.create_task(coro)
     jobs.add(task)
@@ -71,6 +82,8 @@ async def run_scan(scan_id):
                         else:
                             scan.result = await (sca(root, progress) if scan.kind == "sca" else sast(root, progress))
                     await progress("consolidating")
+                    for finding in scan.result.get("findings", []):
+                        finding["application_exposed"] = project.internet_exposed
                     scan.status = "partial" if scan.result.get("warnings") else "completed"
                     index_scan(session, scan)
                     if scan.kind in {"sca", "combined"} and scan.result.get("inventory"):
@@ -152,7 +165,9 @@ async def scheduler_loop():
     while True:
         with Session() as session:
             from .services.history import expire_risks
+            from .services.retention import maintain_retention
             expire_risks(session)
+            maintain_retention(session)
             row = session.get(PlatformSetting, "scheduler")
             config = row.value if row else {"enabled": settings.auto_sync, "interval_minutes": max(5, settings.sync_minutes)}
             last = datetime.fromisoformat(config["last_started"]) if config.get("last_started") else None

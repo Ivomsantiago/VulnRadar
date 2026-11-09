@@ -33,7 +33,7 @@ export type Watch = {
   vulnerability_count?: number | null;
   kev_count?: number | null;
 };
-export type Project = { id: number; name: string; path: string };
+export type Project = { id: number; name: string; path: string; internet_exposed?: boolean | null };
 export type ScanResult = {
   inventory?: Component[];
   findings?: Record<string, unknown>[];
@@ -97,6 +97,8 @@ export async function api<T>(
 ): Promise<T> {
   const response = await fetch(`/api${path}`, {
     method,
+      credentials: "same-origin",
+      cache: "no-store",
     signal: options?.signal,
     headers: {
       "Content-Type": "application/json",
@@ -112,6 +114,8 @@ export async function api<T>(
     } catch {
       /* non-JSON failure */
     }
+    const requestId = response.headers.get("X-Request-ID");
+    if (response.status >= 500 && requestId && /^[a-f0-9]{32}$/.test(requestId)) message += ` · Código de suporte: ${requestId}`;
     throw new Error(message);
   }
   return response.status === 204 ? (undefined as T) : response.json();

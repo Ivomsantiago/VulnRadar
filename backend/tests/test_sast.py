@@ -6,8 +6,10 @@ from app.services.scanner import sast
 
 @pytest.mark.asyncio
 async def test_real_semgrep_local_rules(tmp_path, monkeypatch):
-    tool = Path(__file__).resolve().parents[2] / ".semgrep-venv" / "bin"
-    if not (tool / "semgrep").exists():
+    from app.config import settings
+    monkeypatch.setattr(settings, "store_code_snippets", True)
+    tool = Path(__file__).resolve().parents[2] / ".semgrep-venv" / ("Scripts" if os.name == "nt" else "bin")
+    if not (tool / ("semgrep.exe" if os.name == "nt" else "semgrep")).exists():
         pytest.skip("Semgrep separado não instalado")
     monkeypatch.setenv("PATH", str(tool) + os.pathsep + os.environ["PATH"])
     (tmp_path / "unsafe.py").write_text('import subprocess\napi_key = "TEST_ONLY_SECRET"\nsubprocess.run("echo fixture", shell=True)\n')
@@ -32,3 +34,7 @@ async def test_real_semgrep_local_rules(tmp_path, monkeypatch):
     ignored = await sast(tmp_path)
     assert any(item["check_id"] == finding["check_id"] for item in ignored["findings"])
     assert ignored["engine_version"]
+    monkeypatch.setattr(settings, "store_code_snippets", False)
+    minimal = await sast(tmp_path)
+    assert all("lines" not in item.get("extra", {}) and "metavars" not in item.get("extra", {}) for item in minimal["findings"])
+    assert all(item.get("code_digest") for item in minimal["findings"])

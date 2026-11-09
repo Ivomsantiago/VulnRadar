@@ -4,6 +4,7 @@ import asyncio
 import random
 import time
 import copy
+import math
 from datetime import datetime, timedelta, timezone
 import httpx
 from cvss import CVSS2, CVSS3, CVSS4
@@ -12,6 +13,8 @@ from sqlalchemy import select, delete, update
 from ..config import settings
 from ..db import Activity, Advisory, Alias, Source, Vulnerability, AffectedPackage, Finding, SyncRun, utc_datetime
 from .evidence import evidence
+from ..privacy import require_package_egress
+from ..schemas import NormalizedAdvisory
 
 URLS = {
     "nvd": "https://services.nvd.nist.gov/rest/json/cves/2.0",
@@ -27,7 +30,14 @@ KEV_MIRROR = "https://raw.githubusercontent.com/cisagov/kev-data/main/known_expl
 async def request(client, method, url, **kwargs):
     for attempt in range(4):
         try:
-            response = await client.request(method, url, **kwargs)
+            async with client.stream(method, url, **kwargs) as upstream:
+                content = bytearray()
+                async for chunk in upstream.aiter_bytes(chunk_size=65536):
+                    content.extend(chunk)
+                    if len(content) > settings.max_upstream_bytes:
+                        raise ValueError("Resposta da fonte excede o limite; coleta incompleta")
+                headers = {key: value for key, value in upstream.headers.items() if key.lower() not in {"content-encoding", "content-length", "transfer-encoding"}}
+                response = httpx.Response(upstream.status_code, headers=headers, content=bytes(content), request=upstream.request)
         except httpx.TransportError:
             if attempt == 3:
                 raise
@@ -152,7 +162,7 @@ def aggregate_assessments(session, vulnerability):
 
 
 def upsert(session, source, raw, context="collection"):
-    item = normalize(source, raw)
+    item = NormalizedAdvisory.model_validate(normalize(source, raw)).model_dump()
     identifiers = sorted(set([item["id"], *item["aliases"]]))
     matches = list(session.scalars(select(Alias).where(Alias.id.in_(identifiers))))
     matches_ids = sorted({a.vulnerability_id for a in matches})
@@ -218,6 +228,8 @@ def upsert(session, source, raw, context="collection"):
             from .products import index_products
             index_products(session, key, raw)
         for package in evidence(source, raw)["packages"]:
+            if not isinstance(package["package"], str) or len(package["package"]) > 300 or len(package["ecosystem"]) > 80:
+                raise ValueError("Identidade de pacote inválida na fonte")
             session.add(AffectedPackage(advisory_id=key, ecosystem=package["ecosystem"], package=package["package"], constraints=package))
         vulnerability.updated_at = datetime.now(timezone.utc)
         vulnerability.title = item["title"]
@@ -261,6 +273,7 @@ async def query_osv_batch(keys):
     Missing/failed/paginated entries are omitted so callers retry with the fully
     paginated single-package query instead of claiming complete coverage.
     """
+    require_package_egress()
     from urllib.parse import quote
     results, pending = {}, []
     for key in keys:
@@ -313,6 +326,7 @@ async def query_osv_batch(keys):
 
 
 async def query_osv(ecosystem, package, version):
+    require_package_egress()
     key = (ecosystem, package, version)
     cached = _OSV_CACHE.get(key)
     if cached and time.monotonic() - cached[0] < 300:
@@ -329,6 +343,8 @@ async def query_osv(ecosystem, package, version):
             response = await request(client, "POST", URLS["osv"], json=payload)
             body = response.json()
             rows.extend(body.get("vulns", []))
+            if len(rows) > 10000 or len(seen_tokens) >= 100:
+                raise ValueError("Consulta OSV excede o limite de páginas/resultados; refine com uma versão")
             token = body.get("next_page_token")
             if not token:
                 if len(_OSV_CACHE) >= 256:
@@ -362,7 +378,7 @@ async def sync_source(session, source):
     try:
         async with httpx.AsyncClient(timeout=45, headers={"User-Agent": "VulnRadar/0.1"}) as client:
             if source in {"nvd", "github"}:
-                start = state.checkpoint or (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+                start = state.checkpoint or (datetime.now(timezone.utc) - timedelta(days=settings.nvd_backfill_days if source == "nvd" else 7)).isoformat()
                 if source == "nvd":
                     # NVD limits modification windows; paginate one bounded window
                     # per sync so long-offline installations can catch up safely.
@@ -395,7 +411,7 @@ async def sync_source(session, source):
                     page += 1
                     if (source == "nvd" and page * 2000 >= body.get("totalResults", 0)) or (source == "github" and 'rel="next"' not in response.headers.get("Link", "")):
                         break
-                    await asyncio.sleep(0.2 if source == "github" or settings.nvd_api_key else 6)
+                    await asyncio.sleep(0.2 if source == "github" else 0.7 if settings.nvd_api_key else 6.1)
             elif source == "kev":
                 rows = (await fetch_kev(client))["vulnerabilities"]
                 pages = 1
@@ -430,6 +446,8 @@ async def sync_source(session, source):
                     for row in rows:
                         alias = session.get(Alias, row["cve"])
                         vulnerability = session.get(Vulnerability, alias.vulnerability_id)
+                        if not math.isfinite(float(row["epss"])) or not 0 <= float(row["epss"]) <= 1:
+                            raise ValueError("EPSS da fonte fora do intervalo válido")
                         if vulnerability.epss != float(row["epss"]):
                             updated_count += 1
                             session.add(Activity(kind="epss", subject=vulnerability.id, data=row))

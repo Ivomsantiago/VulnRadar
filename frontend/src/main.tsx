@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { journeys } from "./navigation";
 import { OCI } from "./OCI";
+import { AccessBoundary } from "./Access";
 import { type Source } from "./api";
 import { Empty, useData } from "./shared";
 import { useStored, Skeleton } from "./ui";
@@ -141,8 +142,8 @@ function App() {
             <Monitor size={16} />
           </span>
           <span className="nav-text">
-            <b>Workspace local</b>
-            <small>Ambiente privado</small>
+            <b>Workspace</b>
+            <small>Acesso autenticado</small>
           </span>
           <ChevronDown className="nav-text" size={14} />
         </Link>
@@ -166,7 +167,7 @@ function App() {
         <div className="sidebar-bottom">
           <ShieldCheck size={17} />
           <span className="nav-text">
-            Instância local<small>Dados sob seu controle</small>
+            Instância privada<small>Workspace compartilhado</small>
           </span>
           <button
             className="icon-button nav-text"
@@ -282,8 +283,7 @@ function App() {
             </Routes>
           </React.Suspense>
           <footer>
-            <span>VulnRadar</span> Inteligência com evidências. Decisões com
-            contexto.<small>v{appPackage.version} · Local</small>
+            <span>VulnRadar</span> Índice de vulnerabilidades e evidências de aplicações.<small>v{appPackage.version} · Autenticado</small>
           </footer>
         </main>
       </div>
@@ -301,7 +301,7 @@ createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={client}>
       <BrowserRouter>
-        <App />
+        <AccessBoundary><App /></AccessBoundary>
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>,

@@ -43,6 +43,9 @@ async def test_webhook_payload_is_redacted_and_has_stable_delivery_id(monkeypatc
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         await send_webhook(event, client)
     assert requests[0].headers["Idempotency-Key"] == "vulnradar-alert-42"
+    assert requests[0].url.host == "8.8.8.8"
+    assert requests[0].headers["Host"] == "hooks.example.com"
+    assert requests[0].extensions["sni_hostname"] == "hooks.example.com"
     assert all(value not in requests[0].content.decode() for value in ["SHOULD-NOT-LEAK", "PRIVATE CODE", "/private/path"])
 
 

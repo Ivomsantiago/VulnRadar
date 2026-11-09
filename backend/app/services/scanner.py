@@ -5,12 +5,16 @@ import shutil
 import tomllib
 import tempfile
 import yaml
+import os
 from pathlib import Path
 from defusedxml.ElementTree import fromstring
 from ..config import settings
 from ..security import safe_files, read_file
+from ..privacy import scanner_environment
+from ..process_guard import ProcessGuard
 from .intelligence import query_osv, query_osv_batch
 from .packages import package_identity
+from .usage import observe_imports
 
 
 def parse_dependencies(path: Path, content=None):
@@ -290,6 +294,7 @@ SUPPORTED = {
 
 
 def inventory_root(root):
+    root = root.resolve(strict=True)
     inventory, warnings = [], []
     for path in safe_files(root):
         if path.name not in SUPPORTED and not path.name.endswith(".cdx.json") and not (path.parent.name == "dependency-locks" and path.name.endswith(".lockfile")):
@@ -300,6 +305,10 @@ def inventory_root(root):
             items, notes = parse_dependencies(path, content)
             for item in items:
                 item["file"] = str(path.relative_to(root))
+            if len(inventory) + len(items) > settings.max_components:
+                inventory.extend(items[:max(0, settings.max_components - len(inventory))])
+                warnings.append("Inventário truncado pelo limite de componentes; análise parcial, sem resolução por ausência")
+                return inventory, warnings
             inventory.extend(items)
             warnings.extend(notes)
         except (ValueError, KeyError, TypeError, OSError) as exc:
@@ -313,6 +322,7 @@ async def sca(root, progress=None):
     if progress:
         await progress("inventory")
     inventory, warnings = await asyncio.to_thread(inventory_root, root)
+    await asyncio.to_thread(observe_imports, root, inventory)
     findings = []
     if progress:
         await progress("advisories")
@@ -341,11 +351,14 @@ async def sca(root, progress=None):
         key = (item["ecosystem"], item["package"], item["version"])
         item["query_status"] = "failed" if cache[key] is None else "complete"
         for advisory in cache[key] or []:
-            findings.append({"dependency": item, "advisory": advisory, "evidence": "Correspondência de pacote e versão via OSV; alcançabilidade não avaliada"})
+            findings.append({"dependency": item, "advisory": advisory, "usage": item.get("usage"), "evidence": "Correspondência de pacote e versão via OSV; observação de import é heurística, sem comprovar alcançabilidade da vulnerabilidade"})
     return {"inventory": inventory, "findings": findings, "warnings": warnings, "coverage": "partial" if warnings else "complete", "engine": "OSV"}
 
 
 async def sast(root, progress=None):
+    if settings.access_mode == "team" and not settings.allow_local_sast_in_team:
+        raise ValueError("SAST local bloqueado no modo de equipe; importe SARIF ou configure isolamento externo antes de habilitar")
+    root = root.resolve(strict=True)
     if progress:
         await progress("sast")
     executable = shutil.which("semgrep")
@@ -353,7 +366,7 @@ async def sast(root, progress=None):
         raise ValueError("Semgrep não instalado. Instale com pip install semgrep em ambiente isolado")
     # Scan a bounded snapshot: Semgrep never traverses the original tree or symlinks.
     with tempfile.TemporaryDirectory(prefix="vulnradar-sast-") as temporary:
-        snapshot = Path(temporary)
+        snapshot = Path(temporary).resolve(strict=True)
         scope = []
         for path in safe_files(root):
             # Repository-controlled ignore files must not silently remove coverage.
@@ -383,9 +396,17 @@ async def sast(root, progress=None):
             "1",
             ".",
             cwd=snapshot,
+            env=scanner_environment(snapshot, executable),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            start_new_session=os.name != "nt",
         )
+        try:
+            guard = ProcessGuard(process.pid)
+        except OSError:
+            if process.returncode is None:
+                process.kill()
+            raise
 
         async def bounded_read(stream, maximum):
             output = bytearray()
@@ -403,6 +424,7 @@ async def sast(root, progress=None):
         try:
             stdout, stderr, _ = await asyncio.wait_for(asyncio.gather(*output_tasks), timeout=settings.scan_timeout)
         except (asyncio.TimeoutError, asyncio.CancelledError, ValueError):
+            guard.close()
             if process.returncode is None:
                 process.kill()
             await process.wait()
@@ -410,6 +432,8 @@ async def sast(root, progress=None):
                 task.cancel()
             await asyncio.gather(*output_tasks, return_exceptions=True)
             raise
+        finally:
+            guard.close()
         if process.returncode != 0:
             raise ValueError(f"Semgrep terminou com código {process.returncode}")
         data = json.loads(stdout)
@@ -423,6 +447,7 @@ async def sast(root, progress=None):
             relative = finding.get("path", "")
             source = (snapshot / relative).resolve()
             if source.is_relative_to(snapshot) and source.is_file():
+                finding["path"] = source.relative_to(snapshot).as_posix()
                 lines = source.read_text(encoding="utf-8", errors="replace").splitlines()
                 start = max(0, finding.get("start", {}).get("line", 1) - 2)
                 end = min(len(lines), finding.get("end", {}).get("line", start + 1) + 1)
@@ -436,6 +461,11 @@ async def sast(root, progress=None):
     for finding in data.get("results", []):
         matched = finding.pop("matched_code", "")
         finding["code_digest"] = hashlib.sha256("\n".join(line.strip() for line in matched.splitlines()).encode()).hexdigest() if matched else None
+        extra = finding.get("extra", {})
+        for key in ("metavars", "dataflow_trace", "fix", "fix_regex"):
+            extra.pop(key, None)
+        if not settings.store_code_snippets:
+            extra.pop("lines", None)
     rules_digest = hashlib.sha256(b"".join(rule.read_bytes() for rule in sorted(settings.semgrep_rules.glob("*.y*ml")))).hexdigest()
     return {
         "scope": sorted(scope),

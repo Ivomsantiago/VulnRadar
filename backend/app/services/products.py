@@ -2,7 +2,8 @@
 
 import re
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import Field
+from ..schemas import InputModel
 from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 from ..db import Advisory, AffectedProduct, ProductWatch, Source, Activity, PlatformSetting, get_session
@@ -140,7 +141,7 @@ def products(
     }
 
 
-class ProductWatchInput(BaseModel):
+class ProductWatchInput(InputModel):
     vendor: str = Field(min_length=1, max_length=200)
     product: str = Field(min_length=1, max_length=200)
     version: str = Field(min_length=1, max_length=100)
