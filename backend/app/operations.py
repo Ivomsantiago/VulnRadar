@@ -325,8 +325,9 @@ async def engines():
     return {
         "osv": osv,
         "semgrep": bool(shutil.which("semgrep")),
-        "trivy": bool(shutil.which("trivy")),
-        "grype": bool(shutil.which("grype")),
+        "trivy": False,
+        "grype": False,
+        "oci_enabled": False,
         "oci_registries": settings.oci_registries,
         "rules": len(list(settings.semgrep_rules.glob("*.y*ml"))),
         "scope": "Conectividade HTTP; disponibilidade de uma consulta específica é verificada durante o scan",

@@ -37,7 +37,6 @@ export const journeys = [
       { path: "/inventory", label: "Inventário / SBOM" },
       { path: "/sca", label: "Análises SCA" },
       { path: "/sast", label: "Análises SAST" },
-      { path: "/oci", label: "Imagens OCI" },
       { path: "/history", label: "Histórico e jobs" },
     ],
   },

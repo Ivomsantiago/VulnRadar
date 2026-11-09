@@ -10,9 +10,22 @@ import {
 import { api, type Source } from "./api";
 import { Header, ErrorBox, Badge, formatDate, useData, Empty } from "./shared";
 import { Skeleton } from "./ui";
+const missingLabels: Record<string, string> = {
+  severity: "severidade",
+  cvss: "CVSS",
+  epss: "EPSS",
+  published: "data de publicação",
+  description: "descrição",
+};
 export function Sources() {
   const qc = useQueryClient();
   const data = useData<Source[]>("sources", "/sources");
+  const quality = useData<{
+    total: number;
+    scope: string;
+    policy: string;
+    missing: Record<string, number>;
+  }>("intelligence-quality", "/intelligence/quality");
   const sync = useMutation({
     mutationFn: (source: string) => api("/sources/" + source + "/sync", "POST"),
     onSuccess: () => qc.invalidateQueries(),
@@ -37,7 +50,28 @@ export function Sources() {
           </Link>
         }
       />
-      <ErrorBox error={data.error || sync.error} />
+      <ErrorBox error={data.error || sync.error || quality.error} />
+      {quality.data && (
+        <section className="panel padded">
+          <h2>Qualidade do índice coletado</h2>
+          <p>{quality.data.scope}</p>
+          <div className="source-metrics">
+            <div>
+              <small>Registros indexados</small>
+              <strong>{quality.data.total.toLocaleString("pt-BR")}</strong>
+            </div>
+            {Object.entries(quality.data.missing).map(([key, count]) => (
+              <div key={key}>
+                <small>Sem {missingLabels[key] || key}</small>
+                <strong>{count.toLocaleString("pt-BR")}</strong>
+              </div>
+            ))}
+          </div>
+          <p className="field-hint">
+            {quality.data.policy} <Link to="/feed">Investigar registros</Link>
+          </p>
+        </section>
+      )}
       {sync.isSuccess && (
         <div role="status" className="notice">
           <CheckCircle2 size={16} />

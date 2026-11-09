@@ -26,7 +26,13 @@ KEV_MIRROR = "https://raw.githubusercontent.com/cisagov/kev-data/main/known_expl
 
 async def request(client, method, url, **kwargs):
     for attempt in range(4):
-        response = await client.request(method, url, **kwargs)
+        try:
+            response = await client.request(method, url, **kwargs)
+        except httpx.TransportError:
+            if attempt == 3:
+                raise
+            await asyncio.sleep(2**attempt + random.random())
+            continue
         if response.status_code != 429 and response.status_code < 500:
             response.raise_for_status()
             return response
@@ -117,6 +123,32 @@ def normalize(source, raw):
         affected=cve.get("configurations", []),
         references=cve.get("references", []),
     )
+
+
+def aggregate_assessments(session, vulnerability):
+    """Conservative index summary, independent of connector execution order."""
+    assessments = []
+    priority = {"nvd": 0, "github": 1, "osv": 2}
+    for advisory in session.scalars(select(Advisory).where(Advisory.vulnerability_id == vulnerability.id)):
+        if advisory.source in {"nvd", "github", "osv", "trivy", "grype"}:
+            assessments.append((priority.get(advisory.source, 3), advisory.id, normalize(advisory.source, advisory.payload)))
+    if not assessments:
+        return
+    assessments.sort(key=lambda value: (value[0], value[1]))
+    values = [value[2] for value in assessments]
+    ranking = {"UNKNOWN": 0, "LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
+    vulnerability.severity = max((value["severity"] for value in values), key=lambda severity: ranking[severity])
+    vulnerability.cvss = max((value["cvss"] for value in values if value["cvss"] is not None), default=None)
+    vulnerability.title = next((value["title"] for value in values if value.get("description")), values[0]["title"])
+    vulnerability.description = next((value["description"] for value in values if value.get("description")), "")
+    for field, choose in (("published", min), ("modified", max)):
+        dates = []
+        for value in values:
+            try:
+                dates.append(utc_datetime(datetime.fromisoformat(value[field])))
+            except (ValueError, TypeError):
+                continue
+        setattr(vulnerability, field, choose(dates).isoformat() if dates else None)
 
 
 def upsert(session, source, raw, context="collection"):
@@ -213,6 +245,8 @@ def upsert(session, source, raw, context="collection"):
     vulnerability.severity = severity_name(vulnerability.severity)
     if vulnerability.cvss is None and item["cvss"] is not None:
         vulnerability.cvss = item["cvss"]
+    session.flush()
+    aggregate_assessments(session, vulnerability)
     session.flush()
     return vulnerability
 

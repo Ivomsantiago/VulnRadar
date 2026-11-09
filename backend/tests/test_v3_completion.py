@@ -160,13 +160,12 @@ def test_oci_is_separate_engine_persists_source_and_never_resolves_on_partial_sc
     assert finding.status == "new" and last.result["comparison"]["reopened"] == 1
 
 
-def test_optional_oci_missing_binary_and_registry_validation(client, session, monkeypatch):
+def test_retired_oci_and_registry_validation(client, session, monkeypatch):
     project = Project(name="OCI project", path="/fixture")
     session.add(project)
     session.commit()
-    monkeypatch.setattr("app.services.oci.shutil.which", lambda _: None)
     response = client.post(f"/api/projects/{project.id}/oci", json={"image": "alpine:3.22.0", "engine": "trivy"}, headers=HEADERS)
-    assert response.status_code == 409
+    assert response.status_code == 410
     for image in ("http://169.254.169.254/", "localhost:5000/image", "file:/private", "docker.io/library/image;cat", "../image", "$(command)"):
         with pytest.raises(ValueError):
             validate_image(image)
@@ -331,33 +330,6 @@ async def test_nvd_long_offline_checkpoint_uses_accepted_window(session, monkeyp
     result = await intelligence.sync_source(session, "nvd")
     assert result.status == "success"
     assert utc_datetime(datetime.fromisoformat(result.checkpoint)) == start + timedelta(days=119)
-
-
-@pytest.mark.skipif(__import__("os").name == "nt", reason="POSIX executable process test; CLI adapters remain optional on Windows")
-async def test_oci_cancel_terminates_scanner_process(tmp_path, monkeypatch):
-    import asyncio
-    import os
-    import sys
-    from app.services import oci as service
-
-    marker = tmp_path / "pid"
-    executable = tmp_path / "scanner"
-    executable.write_text(f"#!{sys.executable}\nimport os,time\nfrom pathlib import Path\nPath({str(marker)!r}).write_text(str(os.getpid()))\ntime.sleep(60)\n")
-    executable.chmod(0o755)
-    monkeypatch.setattr(service.shutil, "which", lambda _: str(executable))
-    task = asyncio.create_task(service.oci("alpine:3.22", "trivy"))
-
-    async def started():
-        while not marker.exists():
-            await asyncio.sleep(0.01)
-
-    await asyncio.wait_for(started(), 3)
-    pid = int(marker.read_text())
-    task.cancel()
-    with pytest.raises(asyncio.CancelledError):
-        await task
-    with pytest.raises(ProcessLookupError):
-        os.kill(pid, 0)
 
 
 def test_publication_collection_local_discovery_and_update_are_distinct(session):

@@ -13,7 +13,8 @@ def test_upgrade_downgrade_repeatability(tmp_path):
     def run(*args):
         subprocess.run([sys.executable, "-m", "alembic", "-c", str(root / "alembic.ini"), *args], cwd=root, env=env, check=True, capture_output=True)
 
-    run("upgrade", "head")
+    # Exercise the launcher invocation from the checkout root, including paths with spaces.
+    subprocess.run([sys.executable, "-m", "alembic", "-c", "backend/alembic.ini", "upgrade", "head"], cwd=root.parent, env=env, check=True, capture_output=True)
     run("upgrade", "head")
     engine = create_engine(url)
     assert {"scans", "aliases", "watchlist", "vulnerabilities"} <= set(inspect(engine).get_table_names())

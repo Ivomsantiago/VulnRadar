@@ -150,13 +150,12 @@ Leia [arquitetura](docs/ARCHITECTURE.md), [auditoria V2](docs/V2_AUDIT.md), [est
 
 [Implementação V3](docs/V3_STATUS.md) · [Critérios e testes](docs/V3_ACCEPTANCE.md) · [Auditoria](docs/V3_AUDIT.md)
 
-Inclui oito jornadas de navegação, SCA/SAST/combinado, Trivy/Grype OCI opcionais, busca e monitoramento de produtos CPE/versões, remediação com responsável/SLA/validade e relatórios JSON/CSV/PDF. O histórico preserva estados passados e comparações identificam correções/recorrências. Migrações 0005/0006 são aditivas.
+Inclui oito jornadas de navegação, SCA/SAST/combinado, busca e monitoramento de produtos CPE/versões, remediação com responsável/SLA/validade e relatórios JSON/CSV/PDF. O histórico preserva estados passados e comparações identificam correções/recorrências. Migrações 0005/0006 são aditivas.
 
-Para habilitar OCI após a instalação:
+### Escopo atual: inteligência de aplicações
 
-```bash
-.venv/bin/python scripts/install_engines.py all
-bash scripts/start.sh
-```
+Grype e Trivy foram retirados do fluxo operacional por decisão de produto. O instalador legado não baixa binários e a API OCI retorna HTTP 410; `/oci` mantém acesso às evidências anteriores. Não há remoção de inventários ou achados.
 
-O instalador verifica o SHA256 das releases oficiais. No Windows, use `.venv\Scripts\python.exe scripts/install_engines.py all` e `scripts/start.ps1`. Nenhuma imagem é executada; os scanners consultam o registro remoto e analisam suas camadas. Registros permitidos e timeout ficam em `.env.example`. Não é necessário Docker daemon.
+O foco é indexar e correlacionar NVD, GitHub Advisories, OSV, CISA KEV e FIRST EPSS com pacotes, produtos, versões e aplicações. O resumo usa a maior severidade e CVSS informados pelas fontes, preservando as avaliações individuais e suas divergências. Isso é uma política conservadora de investigação, sem comprovar exploração local.
+
+Consulte [a revisão de produção](docs/PRODUCTION_REVIEW.md) para os limites e resultados desta revisão. A instalação continua local e de instância única; não é aprovada para exposição pública ou operação multiusuário.

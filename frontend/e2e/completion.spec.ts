@@ -100,90 +100,41 @@ test("eight journeys, CPE product lookup, runtime monitoring and server PDF", as
   await expect(page).toHaveURL(/\/feed\?severity=HIGH/);
 });
 
-test("OCI remains usable when optional scanners are absent", async ({
+test("retired OCI preserves investigation routes without scanner controls", async ({
   page,
 }) => {
-  await page.route("**/api/engines", (route) =>
-    route.fulfill({
-      json: {
-        osv: "reachable",
-        semgrep: true,
-        trivy: false,
-        grype: false,
-        oci_registries: ["docker.io"],
-      },
-    }),
-  );
   await page.goto("/oci");
   await expect(
-    page.getByText(/Instale Trivy ou Grype no servidor/),
+    page.getByRole("heading", { name: "Análises OCI anteriores" }),
   ).toBeVisible();
-  await page.goto("/projects");
   await expect(
-    page.getByRole("heading", { name: "Repositórios e análises", exact: true }),
-  ).toBeVisible();
+    page.getByRole("link", { name: "Consultar pacote e versão" }),
+  ).toHaveAttribute("href", "/search");
+  await expect(
+    page.getByRole("button", { name: "Analisar imagem" }),
+  ).toHaveCount(0);
+  const response = await page.request.post("/api/projects/1/oci", {
+    headers: { "X-VulnRadar-Client": "web" },
+    data: { image: "alpine:3.22", engine: "trivy" },
+  });
+  expect(response.status()).toBe(410);
 });
 
-test("OCI real: Trivy and Grype scan remote layers and persist evidence", async ({
+test("index quality is visible separately from application exposure", async ({
   page,
 }) => {
-  test.skip(
-    process.env.VULNRADAR_OCI_LIVE_TESTS !== "1",
-    "Live OCI opt-in requires installed scanners and network",
-  );
-  test.setTimeout(360000);
-  const roots = await (await page.request.get("/api/directories")).json();
-  const root = roots.directories[0]?.path;
-  expect(root).toMatch(/vulnradar-.*browser-/);
-  const folders = await (
-    await page.request.get("/api/directories?path=" + encodeURIComponent(root))
-  ).json();
-  const path = folders.directories.find(
-    (d: { name: string }) => d.name === "sample-app",
-  ).path;
-  let projects = await (await page.request.get("/api/projects")).json();
-  if (!projects.length) {
-    const created = await page.request.post("/api/projects", {
-      headers: { "X-VulnRadar-Client": "web" },
-      data: { name: "Disposable OCI validation", path },
-    });
-    expect(created.status()).toBe(201);
-    projects = [await created.json()];
-  }
-  for (const engine of ["trivy", "grype"]) {
-    await page.goto("/oci");
-    await page
-      .getByLabel("Projeto", { exact: true })
-      .selectOption(String(projects[0].id));
-    await page.getByLabel("Mecanismo", { exact: true }).selectOption(engine);
-    await page
-      .getByLabel("Referência da imagem", { exact: true })
-      .fill("alpine:3.22.0");
-    await page
-      .getByRole("button", { name: "Analisar imagem", exact: true })
-      .click();
-    const dialog = page.getByRole("dialog", { name: /Análise #/ });
-    await expect(dialog.getByText("Concluído", { exact: true })).toBeVisible({
-      timeout: 180000,
-    });
-    await expect(dialog.getByText(/Digest:.*sha256:/)).toBeVisible();
-    await dialog.getByRole("tab", { name: /^OCI/ }).click();
-    await expect(dialog.locator("tbody tr").first()).toBeVisible();
-    await dialog.locator("tbody tr button").first().click();
-    const finding = page.getByRole("dialog", { name: /Investigar achado/ });
-    await finding.getByRole("tab", { name: "Evidência", exact: true }).click();
-    await expect(
-      finding.getByRole("heading", { name: engine.toUpperCase(), exact: true }),
-    ).toBeVisible();
-    await page.screenshot({
-      path: `../docs/screenshots/v3/1440/oci-real-${engine}.png`,
-      fullPage: true,
-    });
-    await page.keyboard.press("Escape");
-    await page.keyboard.press("Escape");
-  }
-  const findings = await (
-    await page.request.get("/api/findings?kind=oci&status=")
-  ).json();
-  expect(findings.total).toBeGreaterThan(0);
+  const response = await page.request.get("/api/intelligence/quality");
+  expect(response.status()).toBe(200);
+  const quality = await response.json();
+  expect(typeof quality.total).toBe("number");
+  expect(Object.keys(quality.missing)).toContain("epss");
+  await page.goto("/sources");
+  await expect(
+    page.getByRole("heading", { name: "Qualidade do índice coletado" }),
+  ).toBeVisible();
+  await expect(page.getByText("Sem EPSS", { exact: true })).toBeVisible();
+  await expect(page.getByText(quality.scope, { exact: true })).toBeVisible();
+  await page.goto("/settings");
+  await expect(page.getByText("Trivy OCI", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Grype OCI", { exact: true })).toHaveCount(0);
 });

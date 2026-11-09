@@ -1,5 +1,7 @@
 # Estado da implementação — V2 — 06/11/2026
 
+> Atualização de 08/11/2026: veja [revisão de produção](PRODUCTION_REVIEW.md). Grype/Trivy foram descontinuados na execução operacional, preservando histórico. Correções de correlação, limites HTTP, saúde das fontes, qualidade do índice e instalação Windows estão implementadas e testadas. A entrega continua local; prontidão para produção remota não foi aprovada. O conteúdo V2/V3 abaixo é histórico.
+
 Especificações: PRODUCT_SPEC.md (original) e PRODUCT_SPEC_V2.md (evolução). Auditoria e jornadas: V2_AUDIT.md. Base: main `3395cc4`, após merge do PR #1. Branch V2: `feat/vulnradar-v2`.
 
 ## Implementação conectada

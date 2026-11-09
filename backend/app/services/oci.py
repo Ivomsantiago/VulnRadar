@@ -1,18 +1,12 @@
-"""Optional CLI adapters scan remote OCI layers without starting containers or Docker."""
+"""Historical report normalization; OCI execution has been retired."""
 
-import asyncio
-import json
 import re
-import shutil
-import os
-import tempfile
-from pathlib import Path
 from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from ..config import settings
-from ..db import Project, Scan, get_session, now
+from ..db import get_session, now
 from .intelligence import severity_name
 
 router = APIRouter(prefix="/api", tags=["OCI analysis"])
@@ -41,20 +35,7 @@ class OCIRequest(BaseModel):
 
 @router.post("/projects/{identifier}/oci", status_code=202)
 async def create_scan(identifier: int, body: OCIRequest, session: Session = Depends(get_session)):
-    from ..workers import jobs, queue_scan
-
-    if not session.get(Project, identifier):
-        raise HTTPException(404, "Projeto não encontrado")
-    if not shutil.which(body.engine):
-        raise HTTPException(409, f"{body.engine} não instalado no servidor; SCA/SAST continuam disponíveis")
-    if len(jobs) >= 8:
-        raise HTTPException(429, "Limite de tarefas atingido")
-    item = Scan(project_id=identifier, kind="oci", result={"request": body.model_dump()})
-    session.add(item)
-    session.commit()
-    queue_scan(item.id)
-    return item
-
+    raise HTTPException(410, "Análises OCI descontinuadas; use o índice de advisories, consulta de versões e inventário de aplicações")
 
 def normalize_report(engine, data, image):
     inventory, findings, warnings = {}, [], []
@@ -146,57 +127,4 @@ def normalize_report(engine, data, image):
 
 
 async def oci(image, engine, progress=None):
-    validate_image(image)
-    executable = shutil.which(engine)
-    if engine not in {"trivy", "grype"} or not executable:
-        raise ValueError("Mecanismo OCI opcional não disponível")
-    if progress:
-        await progress("oci")
-    with tempfile.TemporaryDirectory(prefix="vulnradar-oci-") as temporary:
-        config = Path(temporary) / "config.yaml"
-        config.write_text("{}", encoding="utf-8")
-        args = (
-            [
-                "image",
-                "--config",
-                str(config),
-                "--image-src",
-                "remote",
-                "--scanners",
-                "vuln",
-                "--format",
-                "json",
-                "--list-all-pkgs",
-                "--no-progress",
-                "--timeout",
-                f"{settings.oci_timeout}s",
-                image,
-            ]
-            if engine == "trivy"
-            else ["--config", str(config), "registry:" + image, "--output", "json", "--quiet"]
-        )
-        process = await asyncio.create_subprocess_exec(
-            executable, *args, cwd=temporary, env={**os.environ, "GOMAXPROCS": "2", "GOMEMLIMIT": "512MiB"}, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-        )
-
-        async def read(stream, limit):
-            content = bytearray()
-            while chunk := await stream.read(65536):
-                content.extend(chunk)
-                if len(content) > limit:
-                    raise ValueError("Saída OCI excede o limite de recursos")
-            return bytes(content)
-
-        tasks = [asyncio.create_task(read(process.stdout, 50_000_000)), asyncio.create_task(read(process.stderr, 1_000_000)), asyncio.create_task(process.wait())]
-        try:
-            stdout, _, _ = await asyncio.wait_for(asyncio.gather(*tasks), settings.oci_timeout)
-            if process.returncode != 0:
-                raise ValueError(f"{engine} terminou com código {process.returncode}; confirme imagem, registro e base de advisories")
-            return normalize_report(engine, json.loads(stdout), image)
-        finally:
-            if process.returncode is None:
-                process.kill()
-            await process.wait()
-            for task in tasks:
-                task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
+    raise ValueError("Execução OCI descontinuada nesta instalação")

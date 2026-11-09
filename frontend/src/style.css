@@ -2965,4 +2965,7 @@ aside nav > a { min-height:48px; height:auto; align-items:center; margin:4px 0; 
 aside nav > a .nav-text { white-space:normal; font-size:12.5px; line-height:1.5; }
 .product-search { margin-top:24px; }
 .report-history-table { max-height:340px; overflow:auto; }
+.modal, dialog { overscroll-behavior: contain; }
+h1, h2, h3 { text-wrap: balance; }
+.description, .evidence-block, .authorized-roots { overflow-wrap: anywhere; }
 @media print { .journey-tabs { display:none; } }

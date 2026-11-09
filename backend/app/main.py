@@ -16,7 +16,7 @@ from .workers import jobs, spawn, scheduler_loop, run_sync, queue_scan, scan_tas
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session as DBSession
 from .config import settings
-from .db import Activity, Advisory, Alias, Project, Scan, Session, Source, Vulnerability, Watch, engine, get_session, now
+from .db import Activity, Advisory, Alias, PlatformSetting, Project, Scan, Session, Source, Vulnerability, Watch, engine, get_session, now
 from .security import authorized_path
 from .services.intelligence import query_osv, upsert, normalize
 from .services.monitoring import check_watch, prioritize, get_epss_threshold
@@ -31,6 +31,7 @@ from .services.notifications import notification_loop
 from .services.products import router as products_router, product_rows, ensure_product_index
 from .services.history import ensure_baseline
 from .services.oci import router as oci_router
+from .request_limits import RequestBodyLimit
 
 
 @asynccontextmanager
@@ -61,6 +62,7 @@ app.include_router(products_router)
 app.include_router(oci_router)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 app.add_middleware(CORSMiddleware, allow_origins=settings.origins, allow_methods=["GET", "POST", "PATCH", "DELETE"], allow_headers=["Content-Type", "X-VulnRadar-Client"])
+app.add_middleware(RequestBodyLimit, max_bytes=settings.max_file_bytes)
 
 
 @app.middleware("http")
@@ -215,6 +217,7 @@ def detail(identifier: str, session: DBSession = Depends(get_session)):
             )
         ],
         "priority": prioritize(item, get_epss_threshold(session)),
+        "summary_policy": "Resumo conservador: maior severidade e CVSS entre fontes; primeira publicação e última atualização válidas. Avaliações por fonte preservam divergências. Não comprova explorabilidade.",
         "vulnerability": item,
         "aliases": list(session.scalars(select(Alias.id).where(Alias.vulnerability_id == item.id))),
         "advisories": list(session.scalars(select(Advisory).where(Advisory.vulnerability_id == item.id))),
@@ -286,6 +289,8 @@ def dashboard(days: int = Query(30, ge=7, le=90), session: DBSession = Depends(g
 @app.get("/api/sources")
 def sources(session: DBSession = Depends(get_session)):
     existing = {s.id: s for s in session.scalars(select(Source))}
+    scheduler = session.get(PlatformSetting, "scheduler")
+    interval = scheduler.value.get("interval_minutes", settings.sync_minutes) if scheduler else settings.sync_minutes
     results = []
     for identifier in ("nvd", "github", "osv", "kev", "epss"):
         state = existing.get(identifier)
@@ -293,7 +298,7 @@ def sources(session: DBSession = Depends(get_session)):
         success = session.scalar(select(SyncRun.completed_at).where(SyncRun.source == identifier, SyncRun.status == "success").order_by(SyncRun.id.desc()).limit(1))
         payload = jsonable_encoder(state) if state else {"id": identifier, "status": "never", "count": 0}
         health = {"success": "healthy", "running": "syncing", "partial": "partial", "failed": "unavailable"}.get(payload["status"], "never")
-        if health == "healthy" and success and (now().replace(tzinfo=None) - success.replace(tzinfo=None)).total_seconds() > settings.sync_minutes * 120:
+        if identifier != "osv" and health == "healthy" and success and (now().replace(tzinfo=None) - success.replace(tzinfo=None)).total_seconds() > interval * 120:
             health = "stale"
         results.append(
             {
@@ -305,6 +310,27 @@ def sources(session: DBSession = Depends(get_session)):
             }
         )
     return results
+
+
+@app.get("/api/intelligence/quality")
+def intelligence_quality(session: DBSession = Depends(get_session)):
+    """Coverage of the collected index, never a substitute for application exposure."""
+    def count(condition):
+        return session.scalar(select(func.count()).select_from(Vulnerability).where(condition))
+
+    return {
+        "scope": "Somente o índice coletado; estes números não medem exposição ou segurança das aplicações.",
+        "total": session.scalar(select(func.count()).select_from(Vulnerability)),
+        "missing": {
+            "severity": count(Vulnerability.severity == "UNKNOWN"),
+            "cvss": count(Vulnerability.cvss.is_(None)),
+            "epss": count(Vulnerability.epss.is_(None)),
+            "published": count(Vulnerability.published.is_(None)),
+            "description": count(Vulnerability.description == ""),
+        },
+        "sources": [{"source": name, "advisories": amount} for name, amount in session.execute(select(Advisory.source, func.count()).group_by(Advisory.source).order_by(Advisory.source))],
+        "policy": "Resumo conservador entre fontes. Dados ausentes permanecem desconhecidos; avaliações individuais e divergências estão na investigação.",
+    }
 
 
 @app.post("/api/sources/{source}/sync", status_code=202)
@@ -462,8 +488,9 @@ def get_settings():
         "auto_sync": settings.auto_sync,
         "allowed_roots": settings.allowed_roots,
         "semgrep_available": bool(shutil.which("semgrep")),
-        "trivy_available": bool(shutil.which("trivy")),
-        "grype_available": bool(shutil.which("grype")),
+        "trivy_available": False,
+        "grype_available": False,
+        "oci_enabled": False,
         "oci_registries": settings.oci_registries,
         "oci_timeout": settings.oci_timeout,
         "webhook_configured": bool(settings.webhook_url and settings.webhook_allowed_hosts),

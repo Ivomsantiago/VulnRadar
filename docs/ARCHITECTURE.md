@@ -7,7 +7,6 @@ flowchart LR
   API --> Jobs[Worker assíncrono único]
   Jobs --> OSV[OSV batch + consulta paginada]
   Jobs --> SAST[Semgrep / snapshot limitado]
-  Jobs --> OCI[Trivy ou Grype / camadas OCI remotas]
   Poll[Agendador persistente opcional] --> Sources[NVD / GitHub / KEV / EPSS]
   Sources --> Normalize[Aliases + pacotes + CPEs + evidência original]
   Normalize --> DB
@@ -21,11 +20,11 @@ flowchart LR
 
 A instalação é local, com bind em 127.0.0.1, Host/Origin/CORS explícitos e cabeçalho de mutação. A API não implementa autenticação multiusuário; uso remoto requer autenticação, autorização, TLS e isolamento próprios. Uma instância/worker por banco; jobs interrompidos são marcados como falha reenviável.
 
-Nenhum gerenciador de pacotes, build, instalador ou código de projeto é executado. SCA lê lockfiles/SBOMs; Semgrep analisa snapshot limitado. OCI lê camadas de registros autorizados usando CLIs opcionais e nunca inicia containers ou consulta Docker daemon. Scanners trabalham com as permissões do usuário local, não em sandbox forte.
+Nenhum gerenciador de pacotes, build, instalador ou código de projeto é executado. SCA lê lockfiles/SBOMs; Semgrep analisa snapshot limitado. A execução OCI foi descontinuada; normalizadores e evidências anteriores são preservados para compatibilidade. Scanners trabalham com as permissões do usuário local, não em sandbox forte.
 
 ## Persistência
 
-- Vulnerability/Alias/Advisory: identidade canônica, aliases explícitos, payload por fonte, CVSS/EPSS/KEV e datas. A última normalização é apresentada junto às avaliações originais; divergências não são ocultadas.
+- Vulnerability/Alias/Advisory: identidade canônica, aliases explícitos, payload por fonte, CVSS/EPSS/KEV e datas. O resumo é independente da ordem de coleta: maior severidade e CVSS, primeira publicação e última atualização válidas; texto não vazio com precedência NVD/GitHub/OSV. As avaliações originais e divergências são preservadas. Correções de uma fonte podem reduzir a severidade quando as outras fontes não sustentam o valor anterior.
 - AffectedPackage: componente/ecossistema, intervalos e versões corrigidas. AffectedProduct: índice de CPEs NVD com fornecedor/produto e condições estruturadas. Nenhuma correspondência entre biblioteca e runtime é inferida por nome.
 - Project/Scan: raiz autorizada, motor, estágio, estado, resultado e cobertura. InventoryComponent e FindingObservation preservam observações por execução. Finding mantém identidade estável e último estado operacional.
 - FindingState: estado imutável por evento para exposição histórica, resolução e recorrência. O baseline registra o que se conhece na atualização; não inventa estados anteriores. Dias sem história/análise permanecem desconhecidos.
@@ -55,7 +54,7 @@ OpenAPI efetivo: /docs. Grupos principais:
 | Grupo | Endpoints |
 | --- | --- |
 | Inteligência | /api/vulnerabilities, /api/search/package, /api/search/universal, /api/products, /api/technologies |
-| Monitoramento | /api/watchlist, /api/product-watches, /api/sources, /api/sync-runs, /api/scheduler |
+| Monitoramento | /api/watchlist, /api/product-watches, /api/sources, /api/intelligence/quality, /api/sync-runs, /api/scheduler |
 | Projetos/análises | /api/projects, /api/directories, /api/projects/{id}/inspect, /api/projects/{id}/scans/{kind}, /api/projects/{id}/oci, /api/scans |
 | Investigação | /api/findings, /api/findings/{id}/triage, /api/inventory, /api/exposure |
 | Relatórios | /api/reports/findings (json/csv/pdf), /api/reports/exposure (json/csv/pdf), /api/scans/{id}/export (json/sarif/cyclonedx) |

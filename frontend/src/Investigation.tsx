@@ -692,6 +692,7 @@ export function Details({ id, close }: { id: string; close: () => void }) {
   const qc = useQueryClient();
   const data = useData<{
     vulnerability: Vulnerability;
+    summary_policy?: string;
     priority: { classification: string; reasons: string[] };
     aliases: string[];
     source_assessments?: {
@@ -778,6 +779,7 @@ export function Details({ id, close }: { id: string; close: () => void }) {
                         </span>
                       </div>
                       <p className="description">{v.description}</p>
+                      {data.data.summary_policy && <p className="field-hint">{data.data.summary_policy}</p>}
                       {!!data.data.source_assessments?.length && (
                         <section className="evidence-block">
                           <h3>Avaliações por fonte</h3>
