@@ -24,3 +24,9 @@ docs/screenshots/v3/*/*.png
 !docs/screenshots/v3/1440/*.png
 !docs/screenshots/v3/*/dashboard.png
 .engines/
+.coverage
+.mypy_cache/
+.secrets/
+projects/
+build/
+VulnRadar.spec

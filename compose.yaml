@@ -1,14 +1,37 @@
 services:
   radar:
-    build: .
+    build:
+      context: .
+      args:
+        INCLUDE_SAST: ${VULNRADAR_INCLUDE_SAST:-0}
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    env_file: .env
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8443:8443"
     volumes:
       - radar-data:/app/data
+      - ./.secrets/tls:/run/tls:ro
+      - ${VULNRADAR_PROJECTS_DIR:-./projects}:/projects:ro
+    extra_hosts:
+      - "${VULNRADAR_SERVER_NAME:-radar.interno.example}:127.0.0.1"
     environment:
       VULNRADAR_DATABASE_URL: sqlite:///./data/vulnradar.db
       VULNRADAR_ALLOWED_ROOTS: '[]'
       VULNRADAR_AUTO_SYNC: 'false'
+      VULNRADAR_ACCESS_MODE: team
+      VULNRADAR_ALLOWED_HOSTS: '["${VULNRADAR_SERVER_NAME:-radar.interno.example}","127.0.0.1"]'
+      VULNRADAR_ORIGINS: '["https://${VULNRADAR_SERVER_NAME:-radar.interno.example}:8443"]'
+      VULNRADAR_HEALTH_HOST: ${VULNRADAR_SERVER_NAME:-radar.interno.example}
+    command: ["sh", "-c", "python -m app.migration_runner && exec python -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8443 --ssl-certfile /run/tls/tls.crt --ssl-keyfile /run/tls/tls.key --no-access-log --no-proxy-headers"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,ssl,urllib.request; urllib.request.urlopen('https://'+os.environ['VULNRADAR_HEALTH_HOST']+':8443/api/ready', context=ssl.create_default_context(cafile='/run/tls/ca.crt'), timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
 volumes:
   radar-data:
