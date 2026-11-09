@@ -34,6 +34,9 @@ import {
   useData,
 } from "./shared";
 import { Modal, Skeleton, Tabs } from "./ui";
+import { ExternalImport } from "./ExternalImport";
+import { ExposureControl } from "./ExposureControl";
+import { useRole } from "./Access";
 import { FindingsTable, FindingDetails } from "./Findings";
 
 export function DirectoryPicker({
@@ -130,7 +133,7 @@ function ScanWizard({
   const engines = useQuery({
     queryKey: ["engines"],
     queryFn: () =>
-      api<{ osv: string; semgrep: boolean; rules: number }>("/engines"),
+      api<{ osv: string; semgrep: boolean; rules: number; semgrep_policy?: string }>("/engines"),
     enabled: step === 3,
     refetchInterval: false,
     staleTime: 60000,
@@ -352,6 +355,7 @@ function ScanWizard({
                 />
               </div>
             )}
+            {engines.data?.semgrep_policy === "blocked" && <p className="notice">SAST local bloqueado no servidor da equipe. Importe um SARIF de um analisador isolado; SCA permanece independente.</p>}
             <ErrorBox error={run.error} />
             <div className="callout">
               <ShieldCheck size={18} />
@@ -704,6 +708,7 @@ export function ScanDetails({ id, close }: { id: number; close: () => void }) {
   );
 }
 export function Projects() {
+  const role = useRole();
   const [params, setParams] = useSearchParams();
   const projects = useData<Project[]>("projects", "/projects");
   const scans = useData<Scan[]>("scans", "/scans");
@@ -723,13 +728,14 @@ export function Projects() {
         title="Repositórios e análises"
         description="Conheça seus componentes. Investigue seu código. Acompanhe a correção."
         action={
-          <button className="primary" onClick={() => setCreating(true)}>
+          <button className="primary" disabled={role !== "admin"} title={role !== "admin" ? "Cadastro reservado aos administradores" : undefined} onClick={() => setCreating(true)}>
             <Plus size={16} />
             Cadastrar repositório
           </button>
         }
       />
       <ErrorBox error={projects.error || scans.error} />
+      {role !== "viewer" && !!projects.data?.length && <ExternalImport projects={projects.data} onScan={openScan} />}
       {projectFilter && (
         <div className="notice">
           Projeto selecionado #{projectFilter} ·{" "}
@@ -762,6 +768,7 @@ export function Projects() {
                 </div>
                 <h2>{project.name}</h2>
                 <p className="project-path mono">{project.path}</p>
+                {role === "admin" && <ExposureControl project={project} />}
                 <div className="project-card-meta">
                   <Link to={"/priorities?project_id=" + project.id}>
                     Investigar achados <ArrowRight size={13} />

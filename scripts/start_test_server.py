@@ -11,6 +11,7 @@ import tempfile
 parser = argparse.ArgumentParser()
 parser.add_argument("--port", type=int, default=8000)
 parser.add_argument("--mock-osv", action="store_true", help="Use isolated fictional OSV responses for reproducible CI only")
+parser.add_argument("--auth-test", action="store_true", help="Enable disposable test-only personal key authentication")
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory(prefix="vulnradar-v2-browser-") as temporary:
@@ -24,6 +25,9 @@ import subprocess
 subprocess.run("fixture-never-executed", shell=True)
 ''')
     env = {**os.environ, "VULNRADAR_DATABASE_URL": f"sqlite:///{(base / 'test.db').as_posix()}", "VULNRADAR_ALLOWED_ROOTS": json.dumps([str(projects)]), "VULNRADAR_AUTO_SYNC": "false", "VULNRADAR_ORIGINS": json.dumps([f"http://127.0.0.1:{args.port}"])}
+    env.update({"VULNRADAR_ACCESS_MODE": "local", "VULNRADAR_ACCESS_KEYS": "{}", "VULNRADAR_OSV_QUERIES_ENABLED": "true", "VULNRADAR_STORE_CODE_SNIPPETS": "true", "VULNRADAR_REQUESTS_PER_MINUTE": "60000", "VULNRADAR_MUTATIONS_PER_MINUTE": "6000"})
+    import hashlib
+    env["VULNRADAR_ACCESS_KEYS"] = json.dumps({"test-admin": {"role": "admin", "digest": hashlib.sha256(("v4-test-only-" + "a" * 29 + "b").encode()).hexdigest(), "expires_at": "2099-01-01T00:00:00Z"}})
     semgrep = root / ".semgrep-venv" / ("Scripts" if os.name == "nt" else "bin")
     env["PATH"] = str(semgrep) + os.pathsep + env["PATH"]
     subprocess.run([sys.executable, "-m", "alembic", "-c", "backend/alembic.ini", "upgrade", "head"], cwd=root, env=env, check=True)

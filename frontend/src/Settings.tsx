@@ -3,6 +3,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
 import { Header, ErrorBox, useData, Badge } from "./shared";
 import { Skeleton } from "./ui";
+import { useRole } from "./Access";
+import { Link } from "react-router-dom";
 type Preferences = { theme: string; density: string; epss_threshold: number };
 function PreferencesForm({ value }: { value: Preferences }) {
   const qc = useQueryClient();
@@ -141,6 +143,11 @@ function SchedulerForm() {
   );
 }
 export function SettingsPage() {
+  const role = useRole();
+  if (role !== "admin") return <><Header eyebrow="WORKSPACE" title="Configurações" description="Configurações globais são administradas pela equipe responsável pela instalação." /><section className="panel padded"><p>Seu perfil permite consultar o workspace. Alterações de políticas, credenciais, agendamento e preferências globais exigem um administrador.</p><Link to="/sources">Consultar fontes e cobertura</Link></section></>;
+  return <AdminSettingsPage />;
+}
+function AdminSettingsPage() {
   const settings = useData<{
     allowed_roots: string[];
     semgrep_available: boolean;
@@ -150,6 +157,10 @@ export function SettingsPage() {
     github_token_configured: boolean;
     max_files: number;
     scan_timeout: number;
+    osv_queries_enabled: boolean;
+    store_code_snippets: boolean;
+    access_mode: string;
+    local_sast_policy: string;
   }>("settings", "/settings");
   const preferences = useData<Preferences>("preferences", "/preferences");
   return (
@@ -160,6 +171,14 @@ export function SettingsPage() {
         description="Ajustes de experiência e monitoramento, com segurança da instalação preservada."
       />
       <ErrorBox error={settings.error || preferences.error} />
+      {settings.data && <section className="panel padded">
+        <h2>Privacidade e acesso</h2>
+        <p>Modo: {settings.data.access_mode === "team" ? "Equipe com autenticação" : "Local"}. As permissões são verificadas pelo servidor.</p>
+        <p>Consultas de nomes e versões ao OSV: {settings.data.osv_queries_enabled ? "habilitadas" : "bloqueadas pela instalação"}.</p>
+        <p>Armazenamento de trechos de código em novas análises: {settings.data.store_code_snippets ? "habilitado com redação básica" : "desabilitado"}.</p>
+        <p>SAST local: {settings.data.local_sast_policy === "blocked" ? "bloqueado no modo de equipe; use SARIF externo" : "habilitado conforme disponibilidade do analisador"}.</p>
+        <p className="field-hint">Mudanças nessas políticas exigem configuração do administrador no servidor. Evidências anteriores são preservadas.</p>
+      </section>}
       <div className="settings-grid">
         <section className="panel padded">
           <h2>Experiência de investigação</h2>

@@ -5,7 +5,21 @@ import { BrowserRouter } from "react-router-dom";
 import { useState } from "react";
 import { Kpi, Pagination, Tabs } from "./ui";
 import { Badge } from "./shared";
+import { Table } from "./base";
 afterEach(cleanup);
+it("navigates dense evidence rows by keyboard without losing context", () => {
+  const open = vi.fn();
+  render(<Table label="Evidence"><tbody><tr><td><button data-row-action onClick={() => open(1)}>CVE one</button></td></tr><tr><td><button data-row-action onClick={() => open(2)}>CVE two</button></td></tr></tbody></Table>);
+  const table = screen.getByRole("table", { name: "Evidence" });
+  table.focus(); fireEvent.keyDown(table, { key: "j" });
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "CVE one" }));
+  fireEvent.keyDown(document.activeElement!, { key: "j" });
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "CVE two" }));
+  fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+  expect(document.activeElement).toBe(table);
+  fireEvent.keyDown(table, { key: "Enter" });
+  expect(open).toHaveBeenCalledWith(2);
+});
 describe("operational semantics", () => {
   it("does not substitute a global count when project exposure is unknown", () => {
     render(

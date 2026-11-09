@@ -14,7 +14,7 @@ test("repository wizard, SCA and local Semgrep, evidence, remediation and export
       name: string;
       path: string;
     }[]
-  ).find((p) => p.path.endsWith("/sample-app"));
+  ).find((p) => p.path.replaceAll("\\", "/").endsWith("/sample-app"));
   if (existing) {
     await page
       .locator(".project-card")
@@ -66,7 +66,7 @@ test("repository wizard, SCA and local Semgrep, evidence, remediation and export
       .getByRole("button", { name: /python-subprocess-shell/ }),
   ).toBeVisible();
   await page.screenshot({
-    path: "../docs/screenshots/v3/1440/scan-results.png",
+    path: `${process.env.VULNRADAR_SCREENSHOT_DIR || "../docs/screenshots/v4/after"}/1440/scan-results.png`,
     fullPage: true,
   });
   await page
@@ -80,7 +80,7 @@ test("repository wizard, SCA and local Semgrep, evidence, remediation and export
     finding.getByText("Evidência preservada da ferramenta"),
   ).toBeVisible();
   await page.screenshot({
-    path: "../docs/screenshots/v3/1440/finding-evidence.png",
+    path: `${process.env.VULNRADAR_SCREENSHOT_DIR || "../docs/screenshots/v4/after"}/1440/finding-evidence.png`,
     fullPage: true,
   });
   await finding.getByRole("tab", { name: "Resumo", exact: true }).click();
@@ -100,7 +100,8 @@ test("repository wizard, SCA and local Semgrep, evidence, remediation and export
   expect((await response.json()).runs[0].results.length).toBeGreaterThan(0);
   await page.keyboard.press("Escape");
   await page.goto("/");
-  await expect(page.getByText("Evidências dos scans").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Exposição das aplicações", exact: true })).toBeVisible();
+  expect((await (await page.request.get("/api/exposure")).json()).sca_scanned).toBe(true);
   await page.goto("/inventory");
   await expect(
     page.getByRole("link", { name: "lodash", exact: true }),
@@ -189,7 +190,7 @@ test("fix and reanalyse a disposable repository; resolved findings reopen on rec
 }) => {
   test.setTimeout(120000);
   const project = (await (await page.request.get("/api/projects")).json()).find(
-    (p: { path: string }) => p.path.endsWith("/sample-app"),
+    (p: { path: string }) => p.path.replaceAll("\\", "/").endsWith("/sample-app"),
   );
   expect(project.path).toMatch(/vulnradar-.*browser-/);
   const source = join(project.path, "unsafe.py");

@@ -1,10 +1,14 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Radar, Download, AlertTriangle } from "lucide-react";
+import { Download, AlertTriangle } from "lucide-react";
 import { api } from "./api";
 
-export const formatDate = (value: string | null | undefined) =>
-  value ? new Date(value).toLocaleString("pt-BR") : "Não informado";
+export const formatDate = (value: string | null | undefined) => {
+  if (!value) return "Não informado";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return new Date(value + "T00:00:00Z").toLocaleDateString("pt-BR", { timeZone: "UTC" });
+  const date = new Date(/(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : value + "Z");
+  return Number.isNaN(date.getTime()) ? "Data não verificável" : date.toLocaleString("pt-BR");
+};
 
 export function localDateTime(value: string | null | undefined) {
   if (!value) return "";
@@ -40,11 +44,10 @@ export function Empty({
 }) {
   return (
     <div className="empty">
-      <Radar size={34} />
       <h3>{title}</h3>
       <p>
         {children ||
-          "Os dados aparecerão aqui assim que estiverem disponíveis."}
+            "Revise os filtros e a cobertura das fontes. Cadastre ou analise uma aplicação para obter evidências locais."}
       </p>
     </div>
   );

@@ -18,6 +18,7 @@ import {
   type Activity as Event,
 } from "./api";
 import { Evidence, type SourceEvidence } from "./Evidence";
+import { Table } from "./base";
 import {
   Header,
   Empty,
@@ -172,7 +173,7 @@ export function VulnerabilityTable({
         ))}
       </div>
       <div className={`table-scroll vulnerability-table density-${density}`}>
-        <table>
+        <Table label="Índice de vulnerabilidades">
           <thead>
             <tr>
               <th className="checkbox-cell">
@@ -289,7 +290,7 @@ export function VulnerabilityTable({
               </tr>
             ))}
           </tbody>
-        </table>
+        </Table>
       </div>
     </>
   );

@@ -16,6 +16,9 @@ import {
 } from "./shared";
 import { Modal, Pagination, Skeleton, Tabs, useDebounced } from "./ui";
 import { Details } from "./Investigation";
+import { VexPanel } from "./VexPanel";
+import { Table, Drawer } from "./base";
+import { useRole } from "./Access";
 
 export function FindingsTable({
   items,
@@ -24,8 +27,14 @@ export function FindingsTable({
   items: Finding[];
   open: (id: number) => void;
 }) {
+  const [selected, setSelected] = useState<number[]>([]);
+  useEffect(() => setSelected([]), [items]);
   return (
     <>
+      {!!selected.length && <div className="button-row"><span>{selected.length} achados selecionados nesta página</span><button onClick={() => {
+        const url = URL.createObjectURL(new Blob([JSON.stringify(items.filter(item => selected.includes(item.id)), null, 2)], { type: "application/json" }));
+        const link = document.createElement("a"); link.href = url; link.download = "vulnradar-achados-selecionados.json"; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }}>Exportar seleção JSON</button></div>}
       <div className="finding-cards">
         {items.map((f) => (
           <article key={f.id}>
@@ -60,9 +69,10 @@ export function FindingsTable({
         ))}
       </div>
       <div className="table-scroll findings-table">
-        <table>
+        <Table label="Achados observados; use j e k para navegar e Enter para investigar">
           <thead>
             <tr>
+              <th><input type="checkbox" aria-label="Selecionar todos os achados desta página" checked={items.length > 0 && selected.length === items.length} onChange={event => setSelected(event.target.checked ? items.map(item => item.id) : [])} /></th>
               <th>Vulnerabilidade / regra</th>
               <th>Componente / arquivo</th>
               <th>Projeto</th>
@@ -76,8 +86,9 @@ export function FindingsTable({
           <tbody>
             {items.map((f) => (
               <tr key={f.id}>
+                <td><input type="checkbox" aria-label={`Selecionar achado ${f.id}`} checked={selected.includes(f.id)} onChange={event => setSelected(values => event.target.checked ? [...values, f.id] : values.filter(value => value !== f.id))} /></td>
                 <td>
-                  <button className="text-button" onClick={() => open(f.id)}>
+                  <button data-row-action className="text-button" onClick={() => open(f.id)}>
                     <span
                       className="finding-identifier"
                       title={f.vulnerability_id || f.rule_id || undefined}
@@ -127,7 +138,7 @@ export function FindingsTable({
               </tr>
             ))}
           </tbody>
-        </table>
+        </Table>
       </div>
     </>
   );
@@ -139,6 +150,7 @@ export function FindingDetails({
   id: number;
   close: () => void;
 }) {
+  const role = useRole();
   const query = useData<Finding>("finding", "/findings/" + id);
   const qc = useQueryClient();
   useEffect(() => {
@@ -187,7 +199,7 @@ export function FindingDetails({
     | undefined;
   return (
     <>
-      <Modal title={`Investigar achado #${id}`} drawer wide onClose={close}>
+      <Drawer title={`Investigar achado #${id}`} wide onClose={close}>
         <ErrorBox error={query.error} />
         {query.isPending ? (
           <Skeleton />
@@ -261,6 +273,7 @@ export function FindingDetails({
                           </button>
                         )}
                         <h3>Próximo passo</h3>
+                        {finding.kind === "sca" && role !== "viewer" && <VexPanel findingId={finding.id} />}
                         <p>
                           Verifique o uso do componente e a exposição da
                           aplicação. Registre evidências antes de decidir pela
@@ -378,7 +391,7 @@ export function FindingDetails({
                           </label>
                           <button
                             className="primary"
-                            disabled={mutation.isPending}
+                            disabled={mutation.isPending || role === "viewer"}
                           >
                             Registrar decisão
                           </button>
@@ -483,7 +496,7 @@ export function FindingDetails({
             </>
           )
         )}
-      </Modal>
+      </Drawer>
       {vulnerability && (
         <Details id={vulnerability} close={() => setVulnerability(null)} />
       )}

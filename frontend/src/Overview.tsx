@@ -59,11 +59,11 @@ function Distribution({
               <CartesianGrid stroke="var(--border)" vertical={false} />
               <XAxis
                 dataKey="label"
-                tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                tick={{ fill: "var(--text-muted)", fontSize: 12 }}
               />
               <YAxis
                 allowDecimals={false}
-                tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                tick={{ fill: "var(--text-muted)", fontSize: 12 }}
               />
               <Tooltip
                 contentStyle={{
@@ -126,7 +126,7 @@ export function Overview() {
       <Header
         eyebrow="APPLICATION SECURITY / OVERVIEW"
         title="Visão geral"
-        description="Priorize o que afeta suas aplicações. Investigue com contexto."
+        description="Fila de investigação, cobertura e contexto das aplicações cadastradas."
         action={
           <Link className="button primary" to="/projects">
             <FolderGit2 size={16} />
@@ -135,6 +135,30 @@ export function Overview() {
         }
       />
       <ErrorBox error={exposure.error || global.error} />
+      <section className="panel">
+        <div className="panel-heading">
+          <div>
+            <h2>Vulnerabilidades que exigem atenção</h2>
+            <p>
+              Fila priorizada por exploração conhecida e severidade dos achados
+            </p>
+          </div>
+          <Link to="/priorities">
+            Ver fila completa <ArrowUpRight size={14} />
+          </Link>
+        </div>
+        <ErrorBox error={priorities.error} />
+        {priorities.isPending ? (
+          <Skeleton rows={3} />
+        ) : priorities.data?.items.length ? (
+          <FindingsTable items={priorities.data.items} open={setSelected} />
+        ) : (
+          <Empty title="Nenhum achado aberto registrado">
+            Os achados aparecerão após analisar os projetos. Uma fila vazia não
+            comprova segurança.
+          </Empty>
+        )}
+      </section>
       <div className="section-title">
         <div>
           <ShieldCheck size={17} />
@@ -145,7 +169,7 @@ export function Overview() {
           Central de prioridades <ArrowRight size={14} />
         </Link>
       </div>
-      <div className="metrics">
+      <div className="exposure-context">
         {[
           {
             label: "Vulnerabilidades relevantes",
@@ -205,8 +229,8 @@ export function Overview() {
           <div>
             <h3>
               {e?.state === "no_projects"
-                ? "Coloque suas aplicações no radar"
-                : "Seu próximo passo é uma análise"}
+                ? "Nenhuma aplicação cadastrada"
+                : "Aplicações ainda não analisadas"}
             </h3>
             <p>
               Cadastre um repositório autorizado e execute SCA ou SAST para
@@ -226,30 +250,6 @@ export function Overview() {
           aparecem como “—”. <Link to="/projects">Revisar cobertura</Link>
         </div>
       )}
-      <section className="panel">
-        <div className="panel-heading">
-          <div>
-            <h2>Vulnerabilidades que exigem atenção</h2>
-            <p>
-              Fila priorizada por exploração conhecida e severidade dos achados
-            </p>
-          </div>
-          <Link to="/priorities">
-            Ver fila completa <ArrowUpRight size={14} />
-          </Link>
-        </div>
-        <ErrorBox error={priorities.error} />
-        {priorities.isPending ? (
-          <Skeleton rows={3} />
-        ) : priorities.data?.items.length ? (
-          <FindingsTable items={priorities.data.items} open={setSelected} />
-        ) : (
-          <Empty title="Nenhum achado aberto registrado">
-            Os achados aparecerão após analisar os projetos. Uma fila vazia não
-            comprova segurança.
-          </Empty>
-        )}
-      </section>
       <div className="section-title global-title">
         <div>
           <Globe2 size={17} />
@@ -330,11 +330,11 @@ export function Overview() {
                 <CartesianGrid stroke="var(--border)" vertical={false} />
                 <XAxis
                   dataKey="date"
-                  tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                  tick={{ fill: "var(--text-muted)", fontSize: 12 }}
                 />
                 <YAxis
                   allowDecimals={false}
-                  tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                  tick={{ fill: "var(--text-muted)", fontSize: 12 }}
                 />
                 <Tooltip
                   contentStyle={{
@@ -385,11 +385,11 @@ export function Overview() {
                   <CartesianGrid stroke="var(--border)" vertical={false} />
                   <XAxis
                     dataKey="date"
-                    tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                    tick={{ fill: "var(--text-muted)", fontSize: 12 }}
                   />
                   <YAxis
                     allowDecimals={false}
-                    tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                    tick={{ fill: "var(--text-muted)", fontSize: 12 }}
                   />
                   <Tooltip
                     contentStyle={{
@@ -428,11 +428,11 @@ export function Overview() {
                   <CartesianGrid stroke="var(--border)" vertical={false} />
                   <XAxis
                     dataKey="date"
-                    tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                    tick={{ fill: "var(--text-muted)", fontSize: 12 }}
                   />
                   <YAxis
                     allowDecimals={false}
-                    tick={{ fill: "var(--text-muted)", fontSize: 10 }}
+                    tick={{ fill: "var(--text-muted)", fontSize: 12 }}
                   />
                   <Tooltip
                     contentStyle={{
