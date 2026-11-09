@@ -1,0 +1,703 @@
+{
+  "scope": "Source and newly migrated disposable database; no operational data",
+  "modules": [
+    {
+      "path": "backend/app/__init__.py",
+      "lines": 1
+    },
+    {
+      "path": "backend/app/config.py",
+      "lines": 30
+    },
+    {
+      "path": "backend/app/db.py",
+      "lines": 244
+    },
+    {
+      "path": "backend/app/logging.py",
+      "lines": 32
+    },
+    {
+      "path": "backend/app/main.py",
+      "lines": 626
+    },
+    {
+      "path": "backend/app/operations.py",
+      "lines": 408
+    },
+    {
+      "path": "backend/app/reports.py",
+      "lines": 237
+    },
+    {
+      "path": "backend/app/request_limits.py",
+      "lines": 41
+    },
+    {
+      "path": "backend/app/schemas.py",
+      "lines": 40
+    },
+    {
+      "path": "backend/app/security.py",
+      "lines": 91
+    },
+    {
+      "path": "backend/app/services/evidence.py",
+      "lines": 69
+    },
+    {
+      "path": "backend/app/services/findings.py",
+      "lines": 207
+    },
+    {
+      "path": "backend/app/services/history.py",
+      "lines": 57
+    },
+    {
+      "path": "backend/app/services/intelligence.py",
+      "lines": 471
+    },
+    {
+      "path": "backend/app/services/monitoring.py",
+      "lines": 60
+    },
+    {
+      "path": "backend/app/services/notifications.py",
+      "lines": 93
+    },
+    {
+      "path": "backend/app/services/oci.py",
+      "lines": 130
+    },
+    {
+      "path": "backend/app/services/packages.py",
+      "lines": 11
+    },
+    {
+      "path": "backend/app/services/pdf.py",
+      "lines": 42
+    },
+    {
+      "path": "backend/app/services/products.py",
+      "lines": 204
+    },
+    {
+      "path": "backend/app/services/projects.py",
+      "lines": 87
+    },
+    {
+      "path": "backend/app/services/reporting.py",
+      "lines": 41
+    },
+    {
+      "path": "backend/app/services/scanner.py",
+      "lines": 448
+    },
+    {
+      "path": "backend/app/workers.py",
+      "lines": 178
+    },
+    {
+      "path": "frontend/src/api.test.ts",
+      "lines": 39
+    },
+    {
+      "path": "frontend/src/api.ts",
+      "lines": 215
+    },
+    {
+      "path": "frontend/src/CommandPalette.tsx",
+      "lines": 140
+    },
+    {
+      "path": "frontend/src/Evidence.tsx",
+      "lines": 94
+    },
+    {
+      "path": "frontend/src/Findings.tsx",
+      "lines": 640
+    },
+    {
+      "path": "frontend/src/History.tsx",
+      "lines": 260
+    },
+    {
+      "path": "frontend/src/Inventory.tsx",
+      "lines": 169
+    },
+    {
+      "path": "frontend/src/Investigation.tsx",
+      "lines": 1038
+    },
+    {
+      "path": "frontend/src/main.tsx",
+      "lines": 308
+    },
+    {
+      "path": "frontend/src/navigation.ts",
+      "lines": 72
+    },
+    {
+      "path": "frontend/src/OCI.tsx",
+      "lines": 66
+    },
+    {
+      "path": "frontend/src/Overview.tsx",
+      "lines": 597
+    },
+    {
+      "path": "frontend/src/Products.tsx",
+      "lines": 289
+    },
+    {
+      "path": "frontend/src/Projects.tsx",
+      "lines": 893
+    },
+    {
+      "path": "frontend/src/Reports.tsx",
+      "lines": 415
+    },
+    {
+      "path": "frontend/src/Search.tsx",
+      "lines": 160
+    },
+    {
+      "path": "frontend/src/Settings.tsx",
+      "lines": 251
+    },
+    {
+      "path": "frontend/src/shared.tsx",
+      "lines": 140
+    },
+    {
+      "path": "frontend/src/Sources.tsx",
+      "lines": 182
+    },
+    {
+      "path": "frontend/src/style.css",
+      "lines": 2971
+    },
+    {
+      "path": "frontend/src/Technologies.tsx",
+      "lines": 162
+    },
+    {
+      "path": "frontend/src/ui.test.tsx",
+      "lines": 82
+    },
+    {
+      "path": "frontend/src/ui.tsx",
+      "lines": 250
+    },
+    {
+      "path": "frontend/src/vite-env.d.ts",
+      "lines": 1
+    },
+    {
+      "path": "frontend/src/Watchlist.tsx",
+      "lines": 347
+    },
+    {
+      "path": "scripts/backup.py",
+      "lines": 18
+    },
+    {
+      "path": "scripts/browser_test_app.py",
+      "lines": 43
+    },
+    {
+      "path": "scripts/desktop.py",
+      "lines": 40
+    },
+    {
+      "path": "scripts/install_engines.py",
+      "lines": 2
+    },
+    {
+      "path": "scripts/review_inventory.py",
+      "lines": 43
+    },
+    {
+      "path": "scripts/smoke_local.py",
+      "lines": 58
+    },
+    {
+      "path": "scripts/start_test_server.py",
+      "lines": 43
+    }
+  ],
+  "routes": [
+    {
+      "path": "backend/app/main.py",
+      "line": 91,
+      "method": "GET",
+      "route": "/api/health"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 120,
+      "method": "GET",
+      "route": "/api/vulnerabilities"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 196,
+      "method": "GET",
+      "route": "/api/vulnerabilities/{identifier}"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 229,
+      "method": "PATCH",
+      "route": "/api/vulnerabilities/{identifier}/triage"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 240,
+      "method": "GET",
+      "route": "/api/dashboard"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 290,
+      "method": "GET",
+      "route": "/api/sources"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 316,
+      "method": "GET",
+      "route": "/api/intelligence/quality"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 337,
+      "method": "POST",
+      "route": "/api/sources/{source}/sync"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 345,
+      "method": "POST",
+      "route": "/api/search/package"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 385,
+      "method": "GET",
+      "route": "/api/watchlist"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 406,
+      "method": "POST",
+      "route": "/api/watchlist"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 417,
+      "method": "PATCH",
+      "route": "/api/watchlist/{identifier}"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 428,
+      "method": "DELETE",
+      "route": "/api/watchlist/{identifier}"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 438,
+      "method": "GET",
+      "route": "/api/projects"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 443,
+      "method": "POST",
+      "route": "/api/projects"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 457,
+      "method": "POST",
+      "route": "/api/projects/{identifier}/scans/{kind}"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 470,
+      "method": "GET",
+      "route": "/api/scans"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 475,
+      "method": "GET",
+      "route": "/api/activity"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 483,
+      "method": "GET",
+      "route": "/api/settings"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 507,
+      "method": "GET",
+      "route": "/api/export"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 522,
+      "method": "GET",
+      "route": "/api/events"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 539,
+      "method": "POST",
+      "route": "/api/watchlist/{identifier}/check"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 550,
+      "method": "GET",
+      "route": "/api/scans/{identifier}/export"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 581,
+      "method": "GET",
+      "route": "/api/scans/{identifier}"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 589,
+      "method": "POST",
+      "route": "/api/sync"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 602,
+      "method": "POST",
+      "route": "/api/scans/{identifier}/cancel"
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 614,
+      "method": "GET",
+      "route": "/{path:path}"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 75,
+      "method": "GET",
+      "route": "/findings"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 130,
+      "method": "GET",
+      "route": "/findings/{identifier}"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 143,
+      "method": "PATCH",
+      "route": "/findings/{identifier}/triage"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 174,
+      "method": "GET",
+      "route": "/inventory"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 206,
+      "method": "GET",
+      "route": "/exposure"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 247,
+      "method": "GET",
+      "route": "/technologies"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 282,
+      "method": "GET",
+      "route": "/search/universal"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 302,
+      "method": "GET",
+      "route": "/directories"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 310,
+      "method": "GET",
+      "route": "/projects/{identifier}/inspect"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 318,
+      "method": "GET",
+      "route": "/engines"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 338,
+      "method": "GET",
+      "route": "/sync-runs"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 349,
+      "method": "GET",
+      "route": "/preferences"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 355,
+      "method": "PATCH",
+      "route": "/preferences"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 366,
+      "method": "GET",
+      "route": "/finding-trend"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 387,
+      "method": "GET",
+      "route": "/scheduler"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 393,
+      "method": "PATCH",
+      "route": "/scheduler"
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 407,
+      "method": "GET",
+      "route": "/notification-deliveries"
+    },
+    {
+      "path": "backend/app/reports.py",
+      "line": 20,
+      "method": "GET",
+      "route": "/findings"
+    },
+    {
+      "path": "backend/app/reports.py",
+      "line": 151,
+      "method": "GET",
+      "route": "/exposure"
+    },
+    {
+      "path": "backend/app/services/oci.py",
+      "line": 37,
+      "method": "POST",
+      "route": "/projects/{identifier}/oci"
+    },
+    {
+      "path": "backend/app/services/products.py",
+      "line": 117,
+      "method": "GET",
+      "route": "/products"
+    },
+    {
+      "path": "backend/app/services/products.py",
+      "line": 151,
+      "method": "GET",
+      "route": "/product-watches"
+    },
+    {
+      "path": "backend/app/services/products.py",
+      "line": 156,
+      "method": "POST",
+      "route": "/product-watches"
+    },
+    {
+      "path": "backend/app/services/products.py",
+      "line": 167,
+      "method": "DELETE",
+      "route": "/product-watches/{identifier}"
+    },
+    {
+      "path": "backend/app/services/products.py",
+      "line": 200,
+      "method": "POST",
+      "route": "/product-watches/{identifier}/check"
+    }
+  ],
+  "large_functions": [
+    {
+      "path": "backend/app/main.py",
+      "line": 120,
+      "function": "feed",
+      "lines": 73
+    },
+    {
+      "path": "backend/app/reports.py",
+      "line": 20,
+      "function": "report",
+      "lines": 128
+    },
+    {
+      "path": "backend/app/reports.py",
+      "line": 151,
+      "function": "exposure_history",
+      "lines": 87
+    },
+    {
+      "path": "backend/app/services/evidence.py",
+      "line": 6,
+      "function": "evidence",
+      "lines": 64
+    },
+    {
+      "path": "backend/app/services/findings.py",
+      "line": 44,
+      "function": "index_scan",
+      "lines": 156
+    },
+    {
+      "path": "backend/app/services/intelligence.py",
+      "line": 62,
+      "function": "normalize",
+      "lines": 64
+    },
+    {
+      "path": "backend/app/services/intelligence.py",
+      "line": 154,
+      "function": "upsert",
+      "lines": 98
+    },
+    {
+      "path": "backend/app/services/intelligence.py",
+      "line": 345,
+      "function": "sync_source",
+      "lines": 127
+    },
+    {
+      "path": "backend/app/services/oci.py",
+      "line": 40,
+      "function": "normalize_report",
+      "lines": 87
+    },
+    {
+      "path": "backend/app/services/scanner.py",
+      "line": 16,
+      "function": "parse_dependencies",
+      "lines": 254
+    },
+    {
+      "path": "backend/app/services/scanner.py",
+      "line": 348,
+      "function": "sast",
+      "lines": 101
+    },
+    {
+      "path": "backend/app/workers.py",
+      "line": 33,
+      "function": "run_scan",
+      "lines": 92
+    }
+  ],
+  "dependencies": {
+    "python": [
+      "alembic==1.20.1",
+      "annotated-doc==0.0.5",
+      "annotated-types==0.8.0",
+      "anyio==4.16.0",
+      "APScheduler==3.11.3",
+      "certifi==2026.10.23",
+      "click==8.5.0",
+      "defusedxml==0.7.1",
+      "fastapi==0.162.0",
+      "h11==0.16.0",
+      "httpcore==1.0.9",
+      "httptools==0.9.0",
+      "httpx==0.28.1",
+      "idna==3.20",
+      "iniconfig==2.3.1",
+      "Mako==1.4.3",
+      "MarkupSafe==3.0.4",
+      "opentelemetry-api==1.45.2",
+      "packaging==26.3",
+      "pluggy==1.7.0",
+      "pydantic==2.14.3",
+      "pydantic-settings==2.16.2",
+      "pydantic_core==2.50.4",
+      "Pygments==2.21.0",
+      "pytest==9.2.0",
+      "pytest-asyncio==1.4.1.post1",
+      "python-dotenv==1.2.4",
+      "PyYAML==6.0.3",
+      "ruff==0.17.4",
+      "SQLAlchemy==2.1.8",
+      "starlette==1.10.0",
+      "typing-inspection==0.4.5",
+      "typing_extensions==4.16.0",
+      "tzlocal==5.4.5",
+      "uvicorn==0.54.0",
+      "uvloop==0.23.0; sys_platform != \"win32\"",
+      "watchfiles==1.3.0",
+      "websockets==17.4",
+      "cvss==3.6"
+    ],
+    "frontend": {
+      "name": "vulnradar-web",
+      "version": "0.2.0",
+      "private": true,
+      "type": "module",
+      "scripts": {
+        "dev": "vite --host 127.0.0.1",
+        "build": "tsc -b && vite build",
+        "test": "vitest run"
+      },
+      "dependencies": {
+        "@tailwindcss/vite": "^4.3.5",
+        "@tanstack/react-query": "5.106.1",
+        "lucide-react": "1.70.0",
+        "react": "19.3.1",
+        "react-dom": "19.3.1",
+        "react-router-dom": "7.18.5",
+        "recharts": "3.10.1",
+        "tailwindcss": "^4.3.5"
+      },
+      "devDependencies": {
+        "@axe-core/playwright": "^4.14.0",
+        "@playwright/test": "1.65.0",
+        "@testing-library/jest-dom": "7.0.1",
+        "@testing-library/react": "16.3.3",
+        "@types/react": "19.3.0",
+        "@types/react-dom": "19.3.0",
+        "@vitejs/plugin-react": "6.2.1",
+        "jsdom": "31.0.0",
+        "prettier": "^3.9.10",
+        "typescript": "7.0.2",
+        "vite": "8.3.6",
+        "vitest": "5.1.0"
+      }
+    }
+  },
+  "migrations": [
+    "0001_initial.py",
+    "0002_affected.py",
+    "0003_operations.py",
+    "0004_notifications.py",
+    "0005_remediation.py",
+    "0006_product_history.py"
+  ]
+}
