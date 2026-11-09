@@ -5,4 +5,4 @@ python3 -m venv .venv
 .venv/bin/python -m pip install -r backend/requirements.txt
 npm --prefix frontend ci
 npm --prefix frontend run build
-.venv/bin/python -m alembic -c backend/alembic.ini upgrade head
+.venv/bin/python scripts/migrate.py

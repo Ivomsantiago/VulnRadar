@@ -8,5 +8,5 @@ npm --prefix frontend ci
 if ($LASTEXITCODE) { throw 'Falha instalando frontend' }
 npm --prefix frontend run build
 if ($LASTEXITCODE) { throw 'Falha no build frontend' }
-& .venv\Scripts\python.exe -m alembic -c backend/alembic.ini upgrade head
+& .venv\Scripts\python.exe scripts/migrate.py
 if ($LASTEXITCODE) { throw 'Falha nas migrações' }

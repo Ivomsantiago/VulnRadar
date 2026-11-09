@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 from pathlib import Path
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint, create_engine, event
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from sqlalchemy import JSON, DateTime, Float, ForeignKey, Index, String, Text, UniqueConstraint, create_engine, event
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session as ORMSession, mapped_column, sessionmaker
+from sqlalchemy.types import TypeDecorator
 from .config import settings
 
 
@@ -14,23 +15,36 @@ def utc_datetime(value: datetime):
     return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
 
 
+class UTCDateTime(TypeDecorator):
+    """SQLite storage is unchanged; read values regain their explicit UTC zone."""
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        return utc_datetime(value) if value is not None else None
+
+    def process_result_value(self, value, dialect):
+        return utc_datetime(value) if value is not None else None
+
+
 class Base(DeclarativeBase):
     pass
 
 
 class Vulnerability(Base):
     __tablename__ = "vulnerabilities"
+    __table_args__ = (Index("ix_vuln_severity_published", "severity", "published", "id"), Index("ix_vuln_kev_published", "kev", "published", "id"))
     id: Mapped[str] = mapped_column(String(160), primary_key=True)
     title: Mapped[str] = mapped_column(Text)
     description: Mapped[str] = mapped_column(Text, default="")
     severity: Mapped[str] = mapped_column(String(20), default="UNKNOWN", index=True)
-    cvss: Mapped[float | None]
-    epss: Mapped[float | None]
+    cvss: Mapped[float | None] = mapped_column(Float)
+    epss: Mapped[float | None] = mapped_column(Float)
     kev: Mapped[bool] = mapped_column(default=False, index=True)
     published: Mapped[str | None] = mapped_column(String(60), index=True)
     modified: Mapped[str | None]
     triage: Mapped[str] = mapped_column(String(50), default="new", index=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
 
 
 class Alias(Base):
@@ -53,7 +67,7 @@ class Activity(Base):
     kind: Mapped[str] = mapped_column(String(40), index=True)
     subject: Mapped[str] = mapped_column(String(240), index=True)
     data: Mapped[dict] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
 
 
 class Source(Base):
@@ -81,6 +95,7 @@ class Project(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str]
     path: Mapped[str] = mapped_column(unique=True)
+    internet_exposed: Mapped[bool | None]
 
 
 class Scan(Base):
@@ -90,8 +105,8 @@ class Scan(Base):
     kind: Mapped[str]
     status: Mapped[str] = mapped_column(default="pending", index=True)
     result: Mapped[dict] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+    completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     stage: Mapped[str] = mapped_column(String(40), default="queued")
     indexed: Mapped[bool] = mapped_column(default=False)
 
@@ -166,11 +181,11 @@ class Finding(Base):
     evidence: Mapped[dict] = mapped_column(JSON)
     fixed_versions: Mapped[list] = mapped_column(JSON, default=list)
     owner: Mapped[str | None] = mapped_column(String(150))
-    due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    risk_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    due_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    risk_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     remediation_plan: Mapped[str | None] = mapped_column(Text)
-    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
-    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    first_seen: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+    last_seen: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
 
 
 class FindingObservation(Base):
@@ -193,8 +208,8 @@ class SyncRun(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     source: Mapped[str] = mapped_column(String(30), index=True)
     status: Mapped[str] = mapped_column(String(30), default="running")
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    started_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+    completed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     duration_ms: Mapped[int | None]
     new_count: Mapped[int] = mapped_column(default=0)
     updated_count: Mapped[int] = mapped_column(default=0)
@@ -210,8 +225,8 @@ class NotificationDelivery(Base):
     channel: Mapped[str] = mapped_column(String(20), default="webhook")
     status: Mapped[str] = mapped_column(String(30), default="pending", index=True)
     attempts: Mapped[int] = mapped_column(default=0)
-    last_attempt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    next_attempt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_attempt: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    next_attempt: Mapped[datetime | None] = mapped_column(UTCDateTime())
     error: Mapped[str | None] = mapped_column(String(200))
 
 
@@ -239,6 +254,29 @@ class FindingState(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     finding_id: Mapped[int] = mapped_column(ForeignKey("findings.id"), index=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
-    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+    occurred_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now, index=True)
     action: Mapped[str] = mapped_column(String(30))
     data: Mapped[dict] = mapped_column(JSON)
+
+
+class VexStatement(Base):
+    __tablename__ = "vex_statements"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    finding_id: Mapped[int] = mapped_column(ForeignKey("findings.id"), index=True)
+    package_version: Mapped[str] = mapped_column(String(150))
+    format: Mapped[str] = mapped_column(String(30))
+    artifact_sha256: Mapped[str] = mapped_column(String(64))
+    justification: Mapped[str] = mapped_column(String(100))
+    reason: Mapped[str] = mapped_column(Text)
+    author: Mapped[str] = mapped_column(String(80))
+    issued_at: Mapped[datetime] = mapped_column(UTCDateTime())
+    applied: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=now)
+
+
+@event.listens_for(ORMSession, "before_flush")
+def attach_audit_identity(session, flush_context, instances):
+    from .security_context import actor, request_id
+    for item in session.new:
+        if isinstance(item, Activity):
+            item.data = {**(item.data or {}), "actor": actor.get(), "request_id": request_id.get()}
