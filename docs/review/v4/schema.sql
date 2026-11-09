@@ -29,200 +29,218 @@ CREATE INDEX ix_notification_deliveries_status ON notification_deliveries (statu
 CREATE INDEX ix_scans_project_id ON scans (project_id);
 CREATE INDEX ix_scans_status ON scans (status);
 CREATE INDEX ix_sync_runs_source ON sync_runs (source);
+CREATE INDEX ix_vex_statements_finding_id ON vex_statements (finding_id);
+CREATE INDEX ix_vuln_kev_published ON vulnerabilities (kev, published, id);
+CREATE INDEX ix_vuln_severity_published ON vulnerabilities (severity, published, id);
 CREATE INDEX ix_vulnerabilities_kev ON vulnerabilities (kev);
 CREATE INDEX ix_vulnerabilities_published ON vulnerabilities (published);
 CREATE INDEX ix_vulnerabilities_severity ON vulnerabilities (severity);
 CREATE INDEX ix_vulnerabilities_triage ON vulnerabilities (triage);
 CREATE INDEX ix_watchlist_package ON watchlist (package);
 CREATE TABLE activity (
-	id INTEGER NOT NULL, 
-	kind VARCHAR(40) NOT NULL, 
-	subject VARCHAR(240) NOT NULL, 
-	data JSON NOT NULL, 
-	created_at DATETIME NOT NULL, 
+	id INTEGER NOT NULL,
+	kind VARCHAR(40) NOT NULL,
+	subject VARCHAR(240) NOT NULL,
+	data JSON NOT NULL,
+	created_at DATETIME NOT NULL,
 	PRIMARY KEY (id)
 );
 CREATE TABLE advisories (
-	id VARCHAR(240) NOT NULL, 
-	vulnerability_id VARCHAR(160) NOT NULL, 
-	source VARCHAR(30) NOT NULL, 
-	payload JSON NOT NULL, 
-	PRIMARY KEY (id), 
+	id VARCHAR(240) NOT NULL,
+	vulnerability_id VARCHAR(160) NOT NULL,
+	source VARCHAR(30) NOT NULL,
+	payload JSON NOT NULL,
+	PRIMARY KEY (id),
 	FOREIGN KEY(vulnerability_id) REFERENCES vulnerabilities (id)
 );
 CREATE TABLE affected_packages (
-	id INTEGER NOT NULL, 
-	advisory_id VARCHAR(240) NOT NULL, 
-	ecosystem VARCHAR(80) NOT NULL, 
-	package VARCHAR(300) NOT NULL, 
-	constraints JSON NOT NULL, 
-	PRIMARY KEY (id), 
+	id INTEGER NOT NULL,
+	advisory_id VARCHAR(240) NOT NULL,
+	ecosystem VARCHAR(80) NOT NULL,
+	package VARCHAR(300) NOT NULL,
+	constraints JSON NOT NULL,
+	PRIMARY KEY (id),
 	FOREIGN KEY(advisory_id) REFERENCES advisories (id)
 );
 CREATE TABLE affected_products (
-	id INTEGER NOT NULL, 
-	advisory_id VARCHAR(240) NOT NULL, 
-	vendor VARCHAR(200) NOT NULL, 
-	product VARCHAR(200) NOT NULL, 
-	constraints JSON NOT NULL, 
-	PRIMARY KEY (id), 
+	id INTEGER NOT NULL,
+	advisory_id VARCHAR(240) NOT NULL,
+	vendor VARCHAR(200) NOT NULL,
+	product VARCHAR(200) NOT NULL,
+	constraints JSON NOT NULL,
+	PRIMARY KEY (id),
 	FOREIGN KEY(advisory_id) REFERENCES advisories (id)
 );
 CREATE TABLE alembic_version (
-	version_num VARCHAR(32) NOT NULL, 
+	version_num VARCHAR(32) NOT NULL,
 	CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
 );
 CREATE TABLE aliases (
-	id VARCHAR(160) NOT NULL, 
-	vulnerability_id VARCHAR(160) NOT NULL, 
-	PRIMARY KEY (id), 
+	id VARCHAR(160) NOT NULL,
+	vulnerability_id VARCHAR(160) NOT NULL,
+	PRIMARY KEY (id),
 	FOREIGN KEY(vulnerability_id) REFERENCES vulnerabilities (id)
 );
 CREATE TABLE finding_observations (
-	id INTEGER NOT NULL, 
-	scan_id INTEGER NOT NULL, 
-	finding_id INTEGER NOT NULL, 
-	evidence JSON NOT NULL, 
-	PRIMARY KEY (id), 
-	CONSTRAINT uq_scan_finding UNIQUE (scan_id, finding_id), 
-	FOREIGN KEY(scan_id) REFERENCES scans (id), 
+	id INTEGER NOT NULL,
+	scan_id INTEGER NOT NULL,
+	finding_id INTEGER NOT NULL,
+	evidence JSON NOT NULL,
+	PRIMARY KEY (id),
+	CONSTRAINT uq_scan_finding UNIQUE (scan_id, finding_id),
+	FOREIGN KEY(scan_id) REFERENCES scans (id),
 	FOREIGN KEY(finding_id) REFERENCES findings (id)
 );
 CREATE TABLE finding_states (
-	id INTEGER NOT NULL, 
-	finding_id INTEGER NOT NULL, 
-	project_id INTEGER NOT NULL, 
-	occurred_at DATETIME NOT NULL, 
-	action VARCHAR(30) NOT NULL, 
-	data JSON NOT NULL, 
-	PRIMARY KEY (id), 
-	FOREIGN KEY(finding_id) REFERENCES findings (id), 
+	id INTEGER NOT NULL,
+	finding_id INTEGER NOT NULL,
+	project_id INTEGER NOT NULL,
+	occurred_at DATETIME NOT NULL,
+	action VARCHAR(30) NOT NULL,
+	data JSON NOT NULL,
+	PRIMARY KEY (id),
+	FOREIGN KEY(finding_id) REFERENCES findings (id),
 	FOREIGN KEY(project_id) REFERENCES projects (id)
 );
 CREATE TABLE findings (
-	id INTEGER NOT NULL, 
-	project_id INTEGER NOT NULL, 
-	scan_id INTEGER NOT NULL, 
-	fingerprint VARCHAR(64) NOT NULL, 
-	kind VARCHAR(10) NOT NULL, 
-	vulnerability_id VARCHAR(160), 
-	package VARCHAR(300), 
-	ecosystem VARCHAR(80), 
-	version VARCHAR(150), 
-	file TEXT NOT NULL, 
-	line INTEGER, 
-	rule_id VARCHAR(300), 
-	severity VARCHAR(20) NOT NULL, 
-	status VARCHAR(50) NOT NULL, 
-	evidence JSON NOT NULL, 
-	fixed_versions JSON NOT NULL, 
-	first_seen DATETIME NOT NULL, 
-	last_seen DATETIME NOT NULL, owner VARCHAR(150), due_at DATETIME, risk_expires_at DATETIME, remediation_plan TEXT, 
-	PRIMARY KEY (id), 
-	CONSTRAINT uq_finding_identity UNIQUE (project_id, kind, fingerprint), 
-	FOREIGN KEY(project_id) REFERENCES projects (id), 
-	FOREIGN KEY(scan_id) REFERENCES scans (id), 
+	id INTEGER NOT NULL,
+	project_id INTEGER NOT NULL,
+	scan_id INTEGER NOT NULL,
+	fingerprint VARCHAR(64) NOT NULL,
+	kind VARCHAR(10) NOT NULL,
+	vulnerability_id VARCHAR(160),
+	package VARCHAR(300),
+	ecosystem VARCHAR(80),
+	version VARCHAR(150),
+	file TEXT NOT NULL,
+	line INTEGER,
+	rule_id VARCHAR(300),
+	severity VARCHAR(20) NOT NULL,
+	status VARCHAR(50) NOT NULL,
+	evidence JSON NOT NULL,
+	fixed_versions JSON NOT NULL,
+	first_seen DATETIME NOT NULL,
+	last_seen DATETIME NOT NULL, owner VARCHAR(150), due_at DATETIME, risk_expires_at DATETIME, remediation_plan TEXT,
+	PRIMARY KEY (id),
+	CONSTRAINT uq_finding_identity UNIQUE (project_id, kind, fingerprint),
+	FOREIGN KEY(project_id) REFERENCES projects (id),
+	FOREIGN KEY(scan_id) REFERENCES scans (id),
 	FOREIGN KEY(vulnerability_id) REFERENCES vulnerabilities (id)
 );
 CREATE TABLE inventory_components (
-	id INTEGER NOT NULL, 
-	project_id INTEGER NOT NULL, 
-	scan_id INTEGER NOT NULL, 
-	ecosystem VARCHAR(80) NOT NULL, 
-	package VARCHAR(300) NOT NULL, 
-	version VARCHAR(150) NOT NULL, 
-	file TEXT NOT NULL, 
-	direct BOOLEAN, 
-	query_status VARCHAR(30) NOT NULL, 
-	PRIMARY KEY (id), 
-	FOREIGN KEY(project_id) REFERENCES projects (id), 
+	id INTEGER NOT NULL,
+	project_id INTEGER NOT NULL,
+	scan_id INTEGER NOT NULL,
+	ecosystem VARCHAR(80) NOT NULL,
+	package VARCHAR(300) NOT NULL,
+	version VARCHAR(150) NOT NULL,
+	file TEXT NOT NULL,
+	direct BOOLEAN,
+	query_status VARCHAR(30) NOT NULL,
+	PRIMARY KEY (id),
+	FOREIGN KEY(project_id) REFERENCES projects (id),
 	FOREIGN KEY(scan_id) REFERENCES scans (id)
 );
 CREATE TABLE notification_deliveries (
-	id INTEGER NOT NULL, 
-	activity_id INTEGER NOT NULL, 
-	channel VARCHAR(20) NOT NULL, 
-	status VARCHAR(30) NOT NULL, 
-	attempts INTEGER NOT NULL, 
-	last_attempt DATETIME, 
-	next_attempt DATETIME, 
-	error VARCHAR(200), 
-	PRIMARY KEY (id), 
-	UNIQUE (activity_id), 
+	id INTEGER NOT NULL,
+	activity_id INTEGER NOT NULL,
+	channel VARCHAR(20) NOT NULL,
+	status VARCHAR(30) NOT NULL,
+	attempts INTEGER NOT NULL,
+	last_attempt DATETIME,
+	next_attempt DATETIME,
+	error VARCHAR(200),
+	PRIMARY KEY (id),
+	UNIQUE (activity_id),
 	FOREIGN KEY(activity_id) REFERENCES activity (id)
 );
 CREATE TABLE platform_settings (
-	"key" VARCHAR(80) NOT NULL, 
-	value JSON NOT NULL, 
+	"key" VARCHAR(80) NOT NULL,
+	value JSON NOT NULL,
 	PRIMARY KEY ("key")
 );
 CREATE TABLE product_watches (
-	id INTEGER NOT NULL, 
-	vendor VARCHAR(200) NOT NULL, 
-	product VARCHAR(200) NOT NULL, 
-	version VARCHAR(100) NOT NULL, 
-	alerts_enabled BOOLEAN DEFAULT 1 NOT NULL, 
+	id INTEGER NOT NULL,
+	vendor VARCHAR(200) NOT NULL,
+	product VARCHAR(200) NOT NULL,
+	version VARCHAR(100) NOT NULL,
+	alerts_enabled BOOLEAN DEFAULT 1 NOT NULL,
 	PRIMARY KEY (id)
 );
 CREATE TABLE projects (
-	id INTEGER NOT NULL, 
-	name VARCHAR NOT NULL, 
-	path VARCHAR NOT NULL, 
-	PRIMARY KEY (id), 
+	id INTEGER NOT NULL,
+	name VARCHAR NOT NULL,
+	path VARCHAR NOT NULL, internet_exposed BOOLEAN,
+	PRIMARY KEY (id),
 	UNIQUE (path)
 );
 CREATE TABLE scans (
-	id INTEGER NOT NULL, 
-	project_id INTEGER NOT NULL, 
-	kind VARCHAR NOT NULL, 
-	status VARCHAR NOT NULL, 
-	result JSON NOT NULL, 
-	created_at DATETIME NOT NULL, 
-	completed_at DATETIME, stage VARCHAR(40) DEFAULT 'queued' NOT NULL, "indexed" BOOLEAN DEFAULT 0 NOT NULL, 
-	PRIMARY KEY (id), 
+	id INTEGER NOT NULL,
+	project_id INTEGER NOT NULL,
+	kind VARCHAR NOT NULL,
+	status VARCHAR NOT NULL,
+	result JSON NOT NULL,
+	created_at DATETIME NOT NULL,
+	completed_at DATETIME, stage VARCHAR(40) DEFAULT 'queued' NOT NULL, "indexed" BOOLEAN DEFAULT 0 NOT NULL,
+	PRIMARY KEY (id),
 	FOREIGN KEY(project_id) REFERENCES projects (id)
 );
 CREATE TABLE sources (
-	id VARCHAR(30) NOT NULL, 
-	status VARCHAR NOT NULL, 
-	checkpoint VARCHAR, 
-	last_run VARCHAR, 
-	error TEXT, 
-	count INTEGER NOT NULL, 
+	id VARCHAR(30) NOT NULL,
+	status VARCHAR NOT NULL,
+	checkpoint VARCHAR,
+	last_run VARCHAR,
+	error TEXT,
+	count INTEGER NOT NULL,
 	PRIMARY KEY (id)
 );
 CREATE TABLE sync_runs (
-	id INTEGER NOT NULL, 
-	source VARCHAR(30) NOT NULL, 
-	status VARCHAR(30) NOT NULL, 
-	started_at DATETIME NOT NULL, 
-	completed_at DATETIME, 
-	duration_ms INTEGER, 
-	new_count INTEGER NOT NULL, 
-	updated_count INTEGER NOT NULL, 
-	processed_count INTEGER NOT NULL, 
-	pages INTEGER NOT NULL, 
-	error TEXT, 
+	id INTEGER NOT NULL,
+	source VARCHAR(30) NOT NULL,
+	status VARCHAR(30) NOT NULL,
+	started_at DATETIME NOT NULL,
+	completed_at DATETIME,
+	duration_ms INTEGER,
+	new_count INTEGER NOT NULL,
+	updated_count INTEGER NOT NULL,
+	processed_count INTEGER NOT NULL,
+	pages INTEGER NOT NULL,
+	error TEXT,
 	PRIMARY KEY (id)
 );
+CREATE TABLE vex_statements (
+	id INTEGER NOT NULL,
+	finding_id INTEGER NOT NULL,
+	package_version VARCHAR(150) NOT NULL,
+	format VARCHAR(30) NOT NULL,
+	artifact_sha256 VARCHAR(64) NOT NULL,
+	justification VARCHAR(100) NOT NULL,
+	reason TEXT NOT NULL,
+	author VARCHAR(80) NOT NULL,
+	issued_at DATETIME NOT NULL,
+	applied BOOLEAN DEFAULT 0 NOT NULL,
+	created_at DATETIME NOT NULL,
+	PRIMARY KEY (id),
+	FOREIGN KEY(finding_id) REFERENCES findings (id)
+);
 CREATE TABLE vulnerabilities (
-	id VARCHAR(160) NOT NULL, 
-	title TEXT NOT NULL, 
-	description TEXT NOT NULL, 
-	severity VARCHAR(20) NOT NULL, 
-	cvss FLOAT, 
-	epss FLOAT, 
-	kev BOOLEAN NOT NULL, 
-	published VARCHAR(60), 
-	modified VARCHAR, 
-	triage VARCHAR(50) NOT NULL, 
-	updated_at DATETIME NOT NULL, 
+	id VARCHAR(160) NOT NULL,
+	title TEXT NOT NULL,
+	description TEXT NOT NULL,
+	severity VARCHAR(20) NOT NULL,
+	cvss FLOAT,
+	epss FLOAT,
+	kev BOOLEAN NOT NULL,
+	published VARCHAR(60),
+	modified VARCHAR,
+	triage VARCHAR(50) NOT NULL,
+	updated_at DATETIME NOT NULL,
 	PRIMARY KEY (id)
 );
 CREATE TABLE watchlist (
-	id INTEGER NOT NULL, 
-	ecosystem VARCHAR NOT NULL, 
-	package VARCHAR NOT NULL, 
-	version VARCHAR, min_severity VARCHAR(20) DEFAULT 'LOW' NOT NULL, alerts_enabled BOOLEAN DEFAULT 1 NOT NULL, 
+	id INTEGER NOT NULL,
+	ecosystem VARCHAR NOT NULL,
+	package VARCHAR NOT NULL,
+	version VARCHAR, min_severity VARCHAR(20) DEFAULT 'LOW' NOT NULL, alerts_enabled BOOLEAN DEFAULT 1 NOT NULL,
 	PRIMARY KEY (id)
 );

@@ -1,27 +1,28 @@
 # Segurança
 
-Esta versão é exclusivamente local. Não a exponha publicamente: autenticação multiusuário, isolamento de workers e autorização remota ainda não estão implementados.
+Relate falhas em canal privado ao mantenedor. Não inclua tokens, bancos, caminhos privados ou código confidencial em issues. O projeto não declara certificação OWASP nem substitui uma avaliação independente no ambiente de implantação.
 
-Comunique problemas em canal privado ao mantenedor antes de publicar detalhes ou dados confidenciais. Não envie tokens, repositórios privados ou bancos de produção em issues.
+## Fronteira de confiança
 
-A API exige Host permitido, origem permitida e cabeçalho explícito para mutações. O bind padrão é loopback. Raízes de scan ficam vazias até configuração explícita. Scans não executam instaladores ou código dos alvos. Semgrep usa regras locais e snapshot limitado. Consultas OSV enviam nomes e versões de dependências ao serviço público; considere isso antes de analisar software confidencial.
+O suporte oficial usa SQLite WAL e **um processo/worker**, com um workspace compartilhado pela equipe. Todos os leitores autorizados podem acessar seus projetos e exportações. Não use esta instalação para separar clientes ou organizações. O modo local exige conexão loopback; equipe exige HTTPS e hosts/origens explícitos. O launcher de equipe não confia em cabeçalhos de proxy. Não exponha diretamente à internet.
 
-A leitura V3 ancora diretórios por handles em POSIX e verifica o caminho final do handle no Windows, além de rejeitar links/junctions. Árvores adversariais, permissões do usuário local e políticas de egress continuam exigindo isolamento do sistema operacional. Não analise árvores que adversários possam modificar simultaneamente. Arquivos de dados locais dependem das permissões do usuário do sistema operacional. TLS e validação de artefatos não devem ser desabilitados.
+Chaves pessoais têm 256 bits aleatórios, validade e perfil; só o digest SHA-256 fica no servidor. Não são senhas humanas. Cookies opacos usam HttpOnly/SameSite Strict e Secure no modo equipe; sessões são limitadas, expiram e são invalidadas ao reiniciar. Retirar/rotacionar uma chave exige atualizar a configuração e reiniciar. Não há SSO/MFA ou recuperação de senha. A identificação da auditoria é a conta configurada no servidor, não um campo enviado pelo cliente.
 
-## Controles adicionais V2
+As APIs têm autenticação e autorização centrais, negação de rotas desconhecidas para viewer/analyst, limites por identidade e por operações caras, limite de corpo e streams SSE. Mutações exigem JSON quando há corpo, origem autorizada e `X-VulnRadar-Client: web`. Esse cabeçalho não é uma credencial. CSP, no-store nas APIs, nosniff, restrição de frames, request-id e erros mínimos também cobrem rejeições. Limites de requisição não equivalem a limites de CPU do sistema operacional.
 
-Inventários, achados e observações são separados por projeto/scan. Uma coleta global não vira achado local sem evidência SCA. Triagem exige justificativa e scans parciais não resolvem achados automaticamente.
+## Dados, scanners e integrações
 
-Semgrep lê um snapshot limitado, exclui symlinks/junctions, limita stdout/stderr e tem cancelamento/timeout. Evidências exibem pequenos trechos locais com redação de padrões comuns de credenciais; revise relatórios antes de compartilhá-los. Isso não equivale a DLP.
+- `ALLOWED_ROOTS=[]` até autorização explícita. Leitura por handles, rejeição de links/junctions, validação do destino final no Windows e snapshots limitados reduzem traversal e trocas de caminho. Árvores que terceiros possam modificar durante a leitura exigem isolamento adicional.
+- Nenhum instalador, build, gerenciador de pacotes ou script do repositório analisado é executado. Semgrep é externo, opcional, usa regras locais, argumentos sem shell, ambiente mínimo sem credenciais do servidor, saída limitada e timeout. Job Object no Windows/grupo POSIX controla encerramento. Isso não é sandbox forte.
+- No modo equipe, SAST local é bloqueado por padrão. Prefira SARIF produzido em executor isolado. Habilitar `ALLOW_LOCAL_SAST_IN_TEAM=true` exige preparar esse isolamento no host. Importação não atesta autenticidade da ferramenta nem completude da análise.
+- Egress OSV e snippets começam desabilitados. Dados antigos são preservados; desabilitar snippets não apaga evidências históricas. Quando habilitados, a redação cobre padrões comuns, sem promessa de DLP.
+- Webhook exige HTTPS, allowlist e DNS público; conecta ao IP previamente validado com Host/SNI original, sem proxies do ambiente ou redirects. Testes verificam esse contrato em transporte simulado; TLS real do destino precisa de homologação.
+- SMTP é opcional, exclusivo em relação ao canal webhook, com TLS implícito na porta 465 e certificado verificado. O corpo contém referência genérica ao alerta. Nenhuma notificação real foi enviada nesta revisão.
+- SARIF/CycloneDX são validados com schemas oficiais vendorizados sem carregamento remoto. VEX suporta somente o perfil documentado; não altera triagem sem confirmação explícita e justificativa. Exportação não gera declarações sem evidência aplicada.
+- CSV neutraliza fórmulas, PDF escapa texto, React não renderiza HTML arbitrário das fontes e links são limitados a HTTP(S). Revise exportações antes de compartilhar.
 
-Webhooks ficam desabilitados sem configuração do servidor. Destinos exigem HTTPS e hostname explicitamente permitido; IPs/DNS privados e redirects são recusados. O corpo tem whitelist e não inclui código, caminhos ou campos arbitrários. URLs, tokens e corpos de resposta não são retornados pela API de entregas nem registrados nos logs da aplicação. Use políticas de egress para proteção adicional contra rebinding e destinos comprometidos.
+## Operação
 
-Preferências editáveis não permitem ampliar raízes, Host/CORS, secrets ou limites de recursos. O endpoint de navegação por pastas também valida as raízes e não concede acesso irrestrito ao filesystem.
+Proteja `.env`, certificados, volumes e backups por permissões/ACL e criptografia do host; não há criptografia transparente do banco implementada. Use contas pseudônimas, egress restrito e logs sem corpos/cookies/tokens. Proxies e infraestrutura devem seguir a mesma política. Retenção é opt-in e preserva evidências/triagem; o [documento de privacidade](docs/PRIVACY.md) descreve os limites.
 
-`browser_test_app.py` é exclusivamente de testes, com dados fictícios identificados e banco temporário. Não deve ser usado como launcher de produção.
-
-## Controles adicionais V3
-
-OCI aceita somente registros autorizados, sem URLs arbitrários, caminhos locais, shell ou Docker daemon. CLIs oficiais opcionais têm instalação com SHA256 verificado, timeout, saída limitada e cancelamento; scans OCI são separados de SCA/SAST. Ausência de scanner não vira análise concluída.
-
-Datas de remediação são normalizadas para UTC; aceites expirados reabrem e geram auditoria. Histórico de estados é imutável; relatórios não alteram decisões anteriores. CSV protege contra fórmulas e PDF escapa campos de texto. CPEs condicionais e versões sem comparação verificável permanecem desconhecidos.
+Leia [achados, regressões e pendências](docs/REVIEW_V4.md), [estado executado](docs/IMPLEMENTATION_STATUS.md) e [runbook](docs/RUNBOOK.md). Scans vazios, coletas sem correspondência e testes verdes não demonstram ausência de vulnerabilidades.

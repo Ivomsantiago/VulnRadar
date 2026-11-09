@@ -1,0 +1,774 @@
+{
+  "scope": "Declared routes and static role policy; protected routes require authentication. Domain security review is not exhaustive.",
+  "boundary_regressions": "backend/tests/test_access_v4.py",
+  "routes": [
+    {
+      "path": "backend/app/access.py",
+      "line": 127,
+      "method": "GET",
+      "route": "/api/auth/session",
+      "public": true,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/access.py",
+      "line": 135,
+      "method": "POST",
+      "route": "/api/auth/login",
+      "public": true,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/access.py",
+      "line": 156,
+      "method": "POST",
+      "route": "/api/auth/logout",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/imports.py",
+      "line": 14,
+      "method": "GET",
+      "route": "/api/retention",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": false,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/imports.py",
+      "line": 19,
+      "method": "POST",
+      "route": "/api/retention",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": false,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/imports.py",
+      "line": 24,
+      "method": "POST",
+      "route": "/api/projects/{identifier}/imports/sarif",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/imports.py",
+      "line": 35,
+      "method": "POST",
+      "route": "/api/findings/{identifier}/vex",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/imports.py",
+      "line": 49,
+      "method": "GET",
+      "route": "/api/findings/{identifier}/vex",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 84,
+      "method": "GET",
+      "route": "/api/health",
+      "public": true,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 84,
+      "method": "GET",
+      "route": "/health",
+      "public": true,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 91,
+      "method": "GET",
+      "route": "/api/ready",
+      "public": true,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 91,
+      "method": "GET",
+      "route": "/ready",
+      "public": true,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 126,
+      "method": "GET",
+      "route": "/api/vulnerabilities",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 202,
+      "method": "GET",
+      "route": "/api/vulnerabilities/{identifier}",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 235,
+      "method": "PATCH",
+      "route": "/api/vulnerabilities/{identifier}/triage",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 246,
+      "method": "GET",
+      "route": "/api/dashboard",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 296,
+      "method": "GET",
+      "route": "/api/sources",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 322,
+      "method": "GET",
+      "route": "/api/intelligence/quality",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 343,
+      "method": "POST",
+      "route": "/api/sources/{source}/sync",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": false,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 351,
+      "method": "POST",
+      "route": "/api/search/package",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 401,
+      "method": "GET",
+      "route": "/api/watchlist",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 422,
+      "method": "POST",
+      "route": "/api/watchlist",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 433,
+      "method": "PATCH",
+      "route": "/api/watchlist/{identifier}",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 444,
+      "method": "DELETE",
+      "route": "/api/watchlist/{identifier}",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 454,
+      "method": "GET",
+      "route": "/api/projects",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 459,
+      "method": "POST",
+      "route": "/api/projects",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": false,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 473,
+      "method": "POST",
+      "route": "/api/projects/{identifier}/scans/{kind}",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": false,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 488,
+      "method": "PATCH",
+      "route": "/api/projects/{identifier}/exposure",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": false,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 500,
+      "method": "GET",
+      "route": "/api/scans",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 505,
+      "method": "GET",
+      "route": "/api/activity",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 513,
+      "method": "GET",
+      "route": "/api/settings",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": false,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 543,
+      "method": "GET",
+      "route": "/api/export",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 558,
+      "method": "GET",
+      "route": "/api/events",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 586,
+      "method": "POST",
+      "route": "/api/watchlist/{identifier}/check",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 597,
+      "method": "GET",
+      "route": "/api/scans/{identifier}/export",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 628,
+      "method": "GET",
+      "route": "/api/scans/{identifier}",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 636,
+      "method": "POST",
+      "route": "/api/sync",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": false,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 649,
+      "method": "POST",
+      "route": "/api/scans/{identifier}/cancel",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/main.py",
+      "line": 661,
+      "method": "GET",
+      "route": "/{path:path}",
+      "public": true,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 84,
+      "method": "GET",
+      "route": "/api/findings",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 141,
+      "method": "GET",
+      "route": "/api/findings/{identifier}",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 154,
+      "method": "PATCH",
+      "route": "/api/findings/{identifier}/triage",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 185,
+      "method": "GET",
+      "route": "/api/inventory",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 217,
+      "method": "GET",
+      "route": "/api/exposure",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 258,
+      "method": "GET",
+      "route": "/api/technologies",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 293,
+      "method": "GET",
+      "route": "/api/search/universal",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 313,
+      "method": "GET",
+      "route": "/api/directories",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 321,
+      "method": "GET",
+      "route": "/api/projects/{identifier}/inspect",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 329,
+      "method": "GET",
+      "route": "/api/engines",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 350,
+      "method": "GET",
+      "route": "/api/sync-runs",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 361,
+      "method": "GET",
+      "route": "/api/preferences",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 367,
+      "method": "PATCH",
+      "route": "/api/preferences",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": false,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 378,
+      "method": "GET",
+      "route": "/api/finding-trend",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 399,
+      "method": "GET",
+      "route": "/api/scheduler",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 405,
+      "method": "PATCH",
+      "route": "/api/scheduler",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": false,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/operations.py",
+      "line": 419,
+      "method": "GET",
+      "route": "/api/notification-deliveries",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/reports.py",
+      "line": 20,
+      "method": "GET",
+      "route": "/api/findings",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/reports.py",
+      "line": 151,
+      "method": "GET",
+      "route": "/api/exposure",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/services/oci.py",
+      "line": 37,
+      "method": "POST",
+      "route": "/api/projects/{identifier}/oci",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": false,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/services/products.py",
+      "line": 118,
+      "method": "GET",
+      "route": "/api/products",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/services/products.py",
+      "line": 152,
+      "method": "GET",
+      "route": "/api/product-watches",
+      "public": false,
+      "roles": {
+        "viewer": true,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/services/products.py",
+      "line": 157,
+      "method": "POST",
+      "route": "/api/product-watches",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/services/products.py",
+      "line": 168,
+      "method": "DELETE",
+      "route": "/api/product-watches/{identifier}",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": true,
+        "admin": true
+      }
+    },
+    {
+      "path": "backend/app/services/products.py",
+      "line": 201,
+      "method": "POST",
+      "route": "/api/product-watches/{identifier}/check",
+      "public": false,
+      "roles": {
+        "viewer": false,
+        "analyst": true,
+        "admin": true
+      }
+    }
+  ]
+}

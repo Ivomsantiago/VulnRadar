@@ -1,0 +1,12 @@
+{
+  "build": "PyInstaller 6.22.3 Windows onedir",
+  "binary_sha256": "3f935e10035f78ab294183e910af774d5c1d5b74e55591100998cede9cf599d3",
+  "database": "disposable outside checkout",
+  "health": 200,
+  "unauthenticated_projects": 401,
+  "login": 200,
+  "authenticated_projects": 200,
+  "ready": 200,
+  "frontend": 200,
+  "interactive_browser": "not exercised; launch suppressed"
+}

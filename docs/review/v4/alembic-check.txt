@@ -1,1 +1,1 @@
-FAILED: New upgrade operations detected: [[('modify_type', None, 'vulnerabilities', 'cvss', {'existing_nullable': True, 'existing_server_default': False, 'existing_comment': None}, FLOAT(), Double())], [('modify_type', None, 'vulnerabilities', 'epss', {'existing_nullable': True, 'existing_server_default': False, 'existing_comment': None}, FLOAT(), Double())]]
+No new upgrade operations detected.

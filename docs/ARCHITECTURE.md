@@ -1,77 +1,108 @@
-# Arquitetura — VulnRadar V3
+# Arquitetura V4
+
+Suporte oficial: SQLite WAL, uma instância/worker, workspace de equipe compartilhado. PostgreSQL é experimental / NÃO VALIDADO, conforme [ADR 0001](adr/0001-banco.md). O objetivo é indexar e correlacionar vulnerabilidades de aplicações com evidência observada, mantendo inteligência pública separada de exposição local.
 
 ```mermaid
 flowchart LR
-  UI[React / oito jornadas / TanStack Query] --> API[FastAPI em loopback]
-  API --> DB[(SQLite WAL / SQLAlchemy / Alembic)]
-  API --> Jobs[Worker assíncrono único]
-  Jobs --> OSV[OSV batch + consulta paginada]
-  Jobs --> SAST[Semgrep / snapshot limitado]
-  Poll[Agendador persistente opcional] --> Sources[NVD / GitHub / KEV / EPSS]
-  Sources --> Normalize[Aliases + pacotes + CPEs + evidência original]
-  Normalize --> DB
-  DB --> History[Observações + estados imutáveis + auditoria]
-  History --> Reports[JSON / CSV / PDF / histórico e SLA]
-  API --> SSE[SSE de revisão de atividade]
-  SSE --> UI
+  Browser[React e TanStack Query] --> Boundary[HTTPS / Host / Origin / sessão / perfil / limites]
+  Boundary --> API[FastAPI routers e schemas]
+  API --> Services[Serviços de domínio e consultas SQLAlchemy]
+  Services --> DB[(SQLite WAL / Alembic 0001–0007)]
+  API --> Jobs[Jobs assíncronos de um processo]
+  Jobs --> Collect[NVD / GitHub / KEV / EPSS]
+  Jobs --> OSV[OSV opt-in por pacote]
+  Jobs --> Snapshot[Snapshot limitado / Semgrep opcional]
+  External[SARIF / VEX externos] --> API
+  Collect --> Services
+  OSV --> Services
+  Snapshot --> Services
+  DB --> SSE[SSE de revisões / 4 por usuário / 32 globais]
+  SSE --> Browser
+  DB --> Notify[Webhook ou SMTP opt-in]
 ```
 
-## Fronteiras e execução
+## Camadas reais e dívida
 
-A instalação é local, com bind em 127.0.0.1, Host/Origin/CORS explícitos e cabeçalho de mutação. A API não implementa autenticação multiusuário; uso remoto requer autenticação, autorização, TLS e isolamento próprios. Uma instância/worker por banco; jobs interrompidos são marcados como falha reenviável.
+`access.py` e `http_security.py` centralizam a fronteira; `schemas.py` separa entradas/DTOs de Project e Scan; `imports.py` é um router fino para SARIF/VEX/retenção. Configuração tipada fica em `config.py`, sessões SQLAlchemy entram por `Depends(get_session)` e a identidade é propagada por ContextVar para auditoria transacional.
 
-Nenhum gerenciador de pacotes, build, instalador ou código de projeto é executado. SCA lê lockfiles/SBOMs; Semgrep analisa snapshot limitado. A execução OCI foi descontinuada; normalizadores e evidências anteriores são preservados para compatibilidade. Scanners trabalham com as permissões do usuário local, não em sandbox forte.
+A arquitetura alvo é router → serviço → repositório → modelo. **A extração ainda é parcial:** `main.py`, `operations.py`, `services/products.py` e `reports.py` contêm consultas/regras em handlers, há retornos ORM legados sem DTO dedicado e não existe camada completa de repositórios. O inventário registra módulos grandes e funções acima de 60 linhas. Separar arquivos mecanicamente não foi usado como prova de redução dessa dívida. Strict do mypy cobre quatro módulos; os demais novos módulos ainda precisam de expansão gradual.
 
-## Persistência
+`services/oci.py` conserva normalizadores históricos e o POST 410; não executa Grype/Trivy. `scripts/install_engines.py` era um aviso sem instalação e foi removido. Módulos/documentos V2/V3 que ainda dão suporte a evidências, migrações ou testes não foram apagados por nomenclatura.
 
-- Vulnerability/Alias/Advisory: identidade canônica, aliases explícitos, payload por fonte, CVSS/EPSS/KEV e datas. O resumo é independente da ordem de coleta: maior severidade e CVSS, primeira publicação e última atualização válidas; texto não vazio com precedência NVD/GitHub/OSV. As avaliações originais e divergências são preservadas. Correções de uma fonte podem reduzir a severidade quando as outras fontes não sustentam o valor anterior.
-- AffectedPackage: componente/ecossistema, intervalos e versões corrigidas. AffectedProduct: índice de CPEs NVD com fornecedor/produto e condições estruturadas. Nenhuma correspondência entre biblioteca e runtime é inferida por nome.
-- Project/Scan: raiz autorizada, motor, estágio, estado, resultado e cobertura. InventoryComponent e FindingObservation preservam observações por execução. Finding mantém identidade estável e último estado operacional.
-- FindingState: estado imutável por evento para exposição histórica, resolução e recorrência. O baseline registra o que se conhece na atualização; não inventa estados anteriores. Dias sem história/análise permanecem desconhecidos.
-- Activity: auditoria, fonte, publicação/coleta/descoberta/atualização, triagem, alertas e falhas. Source/SyncRun: checkpoint, resultado, duração, paginação e contagens.
-- Watch/ProductWatch: monitoramento específico por pacote ou fornecedor/produto/versão. PlatformSetting: preferências e agendamento. NotificationDelivery: tentativas e idempotência, sem armazenar secrets.
+## Modelo de dados
 
-Migrações 0001–0006 são explícitas. 0005 adiciona owner/due_at/risk_expires_at/remediation_plan; 0006 adiciona produtos, monitoramento de produto e estados. Backfills são idempotentes e preservam JSON/triagem existente. Backup usa sqlite3.backup, compatível com WAL.
+```mermaid
+erDiagram
+  Vulnerability ||--o{ Alias : identifica
+  Vulnerability ||--o{ Advisory : recebe
+  Advisory ||--o{ AffectedPackage : afeta
+  Advisory ||--o{ AffectedProduct : descreve
+  Project ||--o{ Scan : executa
+  Project ||--o{ Finding : observa
+  Scan ||--o{ InventoryComponent : inventaria
+  Scan ||--o{ FindingObservation : registra
+  Finding ||--o{ FindingObservation : reaparece
+  Finding ||--o{ FindingState : historiza
+  Finding ||--o{ VexStatement : justifica
+  Activity ||--o{ NotificationDelivery : entrega
+  Source ||--o{ SyncRun : coleta
+```
 
-## Fluxos e cobertura
+Os nomes resumem relações conceituais; nem todas são FKs físicas (por exemplo `SyncRun.source`). O [schema real](review/v4/schema.sql) é a referência física. `Alias.id` é único; Finding usa `(project_id, kind, fingerprint)` e observação usa `(scan_id, finding_id)`. JSON preserva evidências, condições e avaliações originais. A V4 adiciona coluna consultável de exposição declarada, registros VEX e índices do feed sem reconstruir tabelas antigas. CHECKs de enums no banco legado continuam pendentes; entradas de domínio relevantes usam validação tipada.
 
-SCA normaliza nomes somente conforme equivalência do ecossistema, exige versão resolvida, deduplica queries e consulta OSV em lotes de 100. Resultados batch retornam IDs que são hidratados uma vez; consultas paginadas substituem batch ausente, incompleto ou com falha. Cache de sucesso TTL 5 min é limitado; erros não viram resultados limpos. HTTP aplica timeout e retry/backoff a rate limits/5xx.
+Datas lidas/escritas no ORM são UTC explícito; datas antigas sem fuso são interpretadas como UTC. O timestamp representa publicação, coleta, descoberta ou mudança conforme o campo, sem intercambiá-los. Índices de severidade/publicação e KEV/publicação foram confirmados por EXPLAIN em banco descartável; [planos](review/v4/query-plans.json) não equivalem a benchmark com volume de produção.
 
-SAST usa regra/arquivo/digest de código/ordinal da ocorrência para não criar achados por simples mudança de linha. Match legado é atualizado somente com evidência inequívoca. Regras, versão do mecanismo e escopo são comparados antes de resolver por ausência. Arquivos .semgrepignore/.gitignore não entram no snapshot e suppressões inline nosemgrep não desabilitam as regras da instalação; aplicabilidade é decidida por triagem auditável. SCA compara manifestos/consultas; OCI compara imagem e mecanismo. Análise parcial nunca resolve por ausência.
+Migrações 0001–0006 permanecem históricas. 0007 é aditiva, preservando inventários, observações, triagem e estados. O launcher oficial de migração faz backup SQLite consistente antes de atualizar banco existente com revisão diferente. Backfill é idempotente e não inventa histórico anterior. [Operação e restauração](RUNBOOK.md).
 
-OCI normaliza relatórios preservando engine e payload original como evidência. Somente referências de registros autorizados são aceitas. Os processos não recebem shell, usam diretório/configuração temporários, timeout, limites de stdout/stderr, GOMAXPROCS=2 e orçamento Go de heap 512 MiB. Cancelamento mata/aguarda o subprocesso. A falta do binário gera pré-requisito explícito e não afeta os demais motores.
+## Coleta e reconciliação
 
-CPE usa igualdade/limites de versão verificáveis. AND/negação, update/plataforma específicos, curingas e ordenações não suportadas permanecem desconhecidos. Não são convertidos em prova de vulnerabilidade/explorabilidade. Produtos são verificados após coleta NVD e manualmente; alertas são deduplicados.
+```mermaid
+flowchart TD
+  Window[Checkpoint / janela NVD 7, 30 ou 90 dias] --> HTTP[HTTP com timeout / retry / limite de resposta]
+  HTTP --> Validate[Validação normalizada de identidade / limites / score]
+  Validate --> Alias[Resolver aliases explícitos]
+  Alias --> Evidence[Preservar advisory e avaliações por fonte]
+  Evidence --> Summary[Maior severidade/CVSS disponível; datas válidas]
+  Summary --> Persist[Commit de página e contadores]
+  Persist --> Complete{Janela completa?}
+  Complete -->|sim| Checkpoint[Avançar checkpoint]
+  Complete -->|não| Retry[Manter checkpoint e falha visível]
+```
 
-NVD/GitHub são paginados e incrementais; checkpoint avança ao completar a janela. NVD recupera instalações atrasadas em janelas de 119 dias. Páginas concluídas sobrevivem à falha de uma página posterior. KEV/EPSS preservam fonte e histórico. O agendamento é desabilitado por padrão até o usuário habilitar na UI.
+NVD/GitHub paginam e retomam a janela de forma idempotente; páginas já persistidas sobrevivem a falhas posteriores. NVD limita janelas atrasadas a 119 dias, espera 6,1 s sem chave e 0,7 s com chave. KEV tem fallback no espelho oficial e EPSS enriquece CVEs coletados; OSV é consulta por pacote, não um feed global.
 
-Remediação exige justificativa. Aceite de risco requer validade futura, com datas normalizadas para UTC; expiração reabre automaticamente. Mudanças de dono/prazo/plano e estados são auditadas na mesma transação. Identidades resolvidas reaparecidas reabrem, preservando observações e decisões anteriores.
+Unificação depende de CVE/aliases explícitos, sem equivalência inventada por nome. A precedência de texto não vazio é NVD/GitHub/OSV; severidade/CVSS usam o maior valor disponível, preservando avaliações por fonte e divergências na investigação. Uma correção da fonte pode reduzir o resumo se nenhuma outra avaliação sustentar o valor antigo. Condições CPE sem interpretação segura ficam desconhecidas.
 
-## API
+## Análise e decisões
 
-OpenAPI efetivo: /docs. Grupos principais:
+```mermaid
+flowchart TD
+  Root[Raiz autorizada / leitura segura] --> Snapshot[Snapshot limitado sem links]
+  Snapshot --> SCA[Lockfiles/SBOM / coordenadas resolvidas]
+  Snapshot --> SAST[Semgrep opcional com ambiente mínimo]
+  SCA --> Consent{Egress OSV habilitado?}
+  Consent -->|sim| Queries[Batch / paginação / limites / falha explícita]
+  Consent -->|não| Partial[Cobertura parcial / desconhecida]
+  External[SARIF autocontido validado] --> Partial
+  Queries --> Index[Inventário + identidade estável + observações]
+  SAST --> Index
+  Partial --> Index
+  Index --> Comparable{Completa / mesmo motor / escopo comparável?}
+  Comparable -->|sim| Compare[Comparar ausência e recorrência]
+  Comparable -->|não| Preserve[Preservar achados sem resolver por ausência]
+  Compare --> Queue[Fila com fatores explicáveis]
+  Preserve --> Queue
+  Queue --> Triage[Decisão humana com motivo / identidade / prazo]
+```
 
-| Grupo | Endpoints |
-| --- | --- |
-| Inteligência | /api/vulnerabilities, /api/search/package, /api/search/universal, /api/products, /api/technologies |
-| Monitoramento | /api/watchlist, /api/product-watches, /api/sources, /api/intelligence/quality, /api/sync-runs, /api/scheduler |
-| Projetos/análises | /api/projects, /api/directories, /api/projects/{id}/inspect, /api/projects/{id}/scans/{kind}, /api/projects/{id}/oci, /api/scans |
-| Investigação | /api/findings, /api/findings/{id}/triage, /api/inventory, /api/exposure |
-| Relatórios | /api/reports/findings (json/csv/pdf), /api/reports/exposure (json/csv/pdf), /api/scans/{id}/export (json/sarif/cyclonedx) |
-| Operação | /api/health, /api/events, /api/activity, /api/preferences, /api/settings, /api/engines, /api/notification-deliveries |
+SCA nunca instala dependências. A heurística de imports Python/JS/TS mostra observação e arquivos, sem provar reachability. Exposição à internet é declaração manual, inclusive desconhecida. KEV, EPSS, CVSS, import observado e exposição explicam a prioridade; ausência de import não reduz risco como prova negativa.
 
-Relatórios compartilham filtros entre tela e exportação. Série histórica aplica filtros ao estado registrado de cada dia, sem reclassificar o passado com a triagem atual. PDF servidor é A4 paginado e sem dependência externa; impressão do navegador também está disponível. JSON/CSV preservam Unicode completo. Truncamentos são explícitos.
+SAST usa regra, caminho relativo normalizado, digest e ordinal para estabilidade; cobertura/regras/motor/escopo precisam ser comparáveis para resolver por ausência. SARIF externo sempre entra parcial, com hash do artefato e resultados normalizados; não carrega arquivos/URIs externos. VEX limita-se a `not_affected` e versão/PURL exatos, com aplicação explícita auditada. [Perfil e limites](RUNBOOK.md).
 
-## UI e segurança
+## Jobs, observabilidade e UI
 
-React/TypeScript/Vite, Tailwind, tokens CSS, Recharts e componentes próprios. Oito jornadas com abas contextuais e URLs antigas preservadas com seus filtros. Consultas obsoletas são canceladas; modais/drawers usam dialog nativo, foco e Escape; tabelas têm paginação, filtros e ordenação conforme a jornada. Gráficos só aparecem com dados suficientes.
+Fila de scans e sincronização têm locks separados e limites de backlog existentes. Cancelamento é persistido inclusive antes de obter slot; SAST encerra processo/grupo e aguarda saída. Reinício marca scans/fontes/sync-runs interrompidos como falha, preservando checkpoint e evidências, sem retomada automática nem resolução de achados. Supervisores reiniciam loops de agendamento/entrega após falhas com espera de 5 s. Não há coordenação distribuída ou garantia de execução exatamente uma vez.
 
-POSIX lê através de handles de cada diretório com O_NOFOLLOW; Windows verifica links/junctions e o destino final do handle. Arquivos não regulares e excessos são rejeitados. React escapa dados externos; links são limitados a HTTP(S), CSP/Host/Origin/CORS reduzem a superfície local. Logs omitem corpos/headers/secrets; snippets têm redação básica, sem promessa de DLP.
+SSE publica revisões para recarregar consultas, tem heartbeat/reconexão e orçamento por identidade/global. Logs estruturados incluem request-id e conta quando disponível, sem corpos/segredos; `/health` e `/ready` separam disponibilidade de prontidão de schema/chaves. O timeout HTTP limita a espera da resposta e não garante interromper CPU/trabalho síncrono já iniciado.
 
-Webhook é opcional, HTTPS, allowlist explícita, recusa IP/DNS privados e redirects, payload restrito e idempotência. Egress/DNS continuam fronteira de confiança. Nenhuma mensagem real foi enviada pelo agente a um destino externo.
-
-## Evidências e limites
-
-Consulte V3_ACCEPTANCE.md e V3_STATUS.md. Testes usam bancos descartáveis e fixtures explicitamente separadas de integrações reais. Linux/Chromium e CLIs OCI foram exercitados; o workflow Windows executa testes e build PyInstaller. Build Windows não equivale a testar interação humana ou Semgrep nativo Windows. Docker/PostgreSQL não são requisitos do modo local e não foram executados nesta sessão.
-
-Cobertura depende de regras, lockfiles, SBOMs e bases das fontes. Ausência de correspondência não comprova segurança. Implantação multiusuário, sandbox forte e certificação humana WCAG exigem processos específicos além desta aplicação local.
+A UI tem tokens comuns, fila antes dos indicadores, inteligência global rotulada, tabelas densas, seleção/exportação, atalhos e drawers nativos com foco. As rotas antigas permanecem acessíveis; nem toda tabela legada foi reescrita para o componente Table. Testes de navegador/axe e capturas usam instância descartável; não substituem avaliação humana de acessibilidade. [Comparativo](screenshots/v4/README.md).
