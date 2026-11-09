@@ -1,0 +1,78 @@
+{
+  "scope": "Local YAML/actionlint and official upstream commit/metadata/archive checks; no V4 workflow run dispatched or published",
+  "date": "2026-11-09",
+  "actionlint": "1.7.12: zero diagnostics",
+  "checks": [
+    {
+      "tool": "actionlint",
+      "version": "1.7.12",
+      "platform": "linux-amd64",
+      "sha256": "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8",
+      "download_hash_verified": true
+    },
+    {
+      "tool": "gitleaks",
+      "version": "8.30.1",
+      "platform": "linux-amd64",
+      "sha256": "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb",
+      "download_hash_verified": true
+    },
+    {
+      "action": "actions/checkout",
+      "commit": "d23441a48e516b6c34aea4fa41551a30e30af803",
+      "metadata": "action.yml",
+      "runtime": "node24",
+      "verified_commit_and_metadata": true
+    },
+    {
+      "action": "actions/setup-python",
+      "commit": "ece7cb06caefa5fff74198d8649806c4678c61a1",
+      "metadata": "action.yml",
+      "runtime": "node24",
+      "verified_commit_and_metadata": true
+    },
+    {
+      "action": "actions/setup-node",
+      "commit": "249970729cb0ef3589644e2896645e5dc5ba9c38",
+      "metadata": "action.yml",
+      "runtime": "node24",
+      "verified_commit_and_metadata": true
+    },
+    {
+      "action": "actions/upload-artifact",
+      "commit": "b7c566a772e6b6bfb58ed0dc250532a479d7789f",
+      "metadata": "action.yml",
+      "runtime": "node24",
+      "verified_commit_and_metadata": true
+    },
+    {
+      "action": "github/codeql-action/init",
+      "commit": "33d7b85da1a04171e211befe2c739303b9a4c066",
+      "metadata": "init/action.yml",
+      "runtime": "node24",
+      "verified_commit_and_metadata": true
+    },
+    {
+      "action": "github/codeql-action/analyze",
+      "commit": "33d7b85da1a04171e211befe2c739303b9a4c066",
+      "metadata": "analyze/action.yml",
+      "runtime": "node24",
+      "verified_commit_and_metadata": true
+    }
+  ],
+  "shellcheck": "0.11.0: zero diagnostics through actionlint",
+  "local_results": {
+    "backend": "143 passed, 9 skipped in 133.01s; real native Semgrep exercised",
+    "mypy": "4 configured strict modules passed",
+    "ruff": "backend and scripts passed",
+    "frontend": "8 tests, strict TypeScript and production build passed with Node 24.22.2",
+    "packaged_executable_smoke": "passed with disposable database; original V4 binary, no rebuild for YAML changes",
+    "gitleaks": "8.30.1: 15 commits scanned, no leaks found; redacted SARIF generated and parsed",
+    "playwright": "18 scenarios passed with Node 24.22.2, disposable mock-OSV server on 8006, real Semgrep; screenshots in temporary directory"
+  },
+  "node_archive": {
+    "version": "24.22.2",
+    "sha256": "ca1bff5d8ead13c9f2ea404a176db46bd430704d5b5113734049fa365e7799e2",
+    "verified_against": "https://nodejs.org/dist/latest-v24.x/SHASUMS256.txt"
+  }
+}

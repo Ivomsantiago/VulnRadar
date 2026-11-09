@@ -2,6 +2,8 @@
 
 Branch `v4/revisao`, base `79eff96`. Trabalho no checkout existente, sem push, sem migração do banco operacional e sem notificação externa. O escopo confirmado é **equipe em servidor privado, workspace compartilhado**. A V4 adiciona controles para esse cenário, mas **o aceite integral de produção ainda não está concluído**.
 
+Atualização de CI em 09/11: [workflows revisados](CI_REVIEW.md), Actions com runtime Node 24/commits verificados, actionlint + ShellCheck aprovados, teste SAST/smoke no Windows e Gitleaks CLI com checksum. Node 24 foi exercitado localmente nesta atualização; execução remota dos workflows V4 continua NÃO VALIDADA.
+
 ## Linha do tempo
 
 | Etapa | Resultado e referência |
@@ -21,7 +23,7 @@ Documentos V2/V3 são registros históricos; suas limitações/contagens não su
 | Integrações públicas reais | `VULNRADAR_LIVE_TESTS=1 pytest -q tests/integration -rs`: **7 aprovados**, NVD/GitHub/KEV/EPSS/OSV e CPE NVD; somente leitura pública |
 | Ruff | `python -m ruff check backend` e `python -m ruff check scripts --config backend/pyproject.toml`: aprovados |
 | Mypy gradual | `cd backend; python -m mypy`: aprovado em **4 módulos**, strict; não implica tipagem estrita do backend inteiro |
-| Frontend | `npm test`: **8 aprovados**; `tsc --strict --noEmit` e `npm run build`: aprovados |
+| Frontend | `npm test`: **8 aprovados**; `tsc --strict --noEmit` e `npm run build`: aprovados, inclusive na repetição com Node **24.22.2** da revisão de CI |
 | Dependências | `pip-audit==2.10.1 -r backend/requirements.txt --no-deps --disable-pip`: nenhuma vulnerabilidade conhecida; `uv pip check`: 58 pacotes compatíveis; `npm audit --audit-level=low`: zero vulnerabilidades |
 | Dados | Upgrade fixture V2 com triagem/histórico preservados, repetibilidade e backup/wrapper aprovados; `scripts/review_inventory.py`: `alembic check` aprovado, schema e EXPLAIN salvos |
 | SAST Windows nativo | Semgrep 1.184.0 real em ambiente separado; teste de regras/snapshot/encerramento aprovado; sem execução de código do alvo |
@@ -29,7 +31,7 @@ Documentos V2/V3 são registros históricos; suas limitações/contagens não su
 | Empacotamento Windows | PyInstaller 6.22.3 onedir compilou em destino novo; smoke descartável final confirmou health/login/API protegida/ready/frontend. Artefato com SHA-256 do binário; sem interação humana do executável |
 | Segredos | Gitleaks 8.30.1, relatório redigido: zero achados nos 14 commits examinados até `418b06f`, 1,80 MB. Ausência de achados não comprova ausência de segredos |
 
-Os nove skips do backend padrão são sete integrações opt-in (exercitadas separadamente acima) e dois cenários de symlink sem privilégio Windows. Não foram convertidos em aprovações. Node executado localmente: 26.13.0; Node 24 é o alvo dos workflows, ainda sem execução remota V4.
+Os nove skips do backend padrão são sete integrações opt-in (exercitadas separadamente acima) e dois cenários de symlink sem privilégio Windows. Não foram convertidos em aprovações. A revisão inicial usou Node 26.13.0; a atualização de CI exercitou Node **24.22.2** localmente. A execução remota V4 ainda não ocorreu.
 
 ## Pendências de implementação
 
@@ -45,7 +47,7 @@ Os nove skips do backend padrão são sete integrações opt-in (exercitadas sep
 | --- | --- |
 | Docker build/run | `docker compose build` foi tentado; comando docker ausente. Executar no host com daemon, conferir volumes/read-only/TLS/healthcheck e opção SAST |
 | PostgreSQL | Nenhum servidor/driver/suíte específica exercitado; permanece experimental conforme ADR |
-| CI V4 remoto e CodeQL/Gitleaks Actions | Workflows/SHA/permissões preparados; não houve push nem execução remota. Verificar também disponibilidade de CodeQL no repositório privado |
+| CI V4 remoto e CodeQL/Gitleaks | Workflows/commits/permissões revisados; repositório confirmado público, mas não houve push nem execução remota V4. Confirmar upload CodeQL e artefatos nos runners |
 | Servidor privado real | Sem implantação, certificado/PKI/firewall/conta de serviço, backup externo, carga e reinício do gerenciador homologados |
 | SMTP/webhook reais | Contratos testados com mocks; nenhum destino/credencial autorizado para envio. Pinagem Host/SNI testada em mock, sem handshake TLS real do webhook |
 | Sandbox forte | Não implementada; SAST bloqueado em team por padrão. Controles de processo/snapshot não isolam filesystem/kernel/rede |
