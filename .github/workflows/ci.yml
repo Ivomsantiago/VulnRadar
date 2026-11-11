@@ -1,5 +1,10 @@
 name: Validate
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [main, dev, homologue]
+  pull_request:
+    branches: [main, dev, homologue]
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -8,7 +13,7 @@ concurrency:
 jobs:
   workflows:
     name: Validate workflow definitions
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -27,7 +32,7 @@ jobs:
           tar -xzf "$tool_dir/actionlint.tar.gz" -C "$tool_dir" actionlint
           "$tool_dir/actionlint" -color
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -74,8 +79,22 @@ jobs:
       - name: Audit frontend dependencies
         run: npm audit --audit-level=high
         working-directory: frontend
+      - name: Install test browser dependencies
+        timeout-minutes: 10
+        run: |
+          installed=false
+          for attempt in 1 2 3; do
+            if npx playwright install-deps chromium; then
+              installed=true
+              break
+            fi
+            if [ "$attempt" -lt 3 ]; then sleep 5; fi
+          done
+          if [ "$installed" != true ]; then exit 1; fi
+        working-directory: frontend
       - name: Install test browser
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 5
+        run: npx playwright install chromium
         working-directory: frontend
       - name: Browser tests against a disposable server
         env:

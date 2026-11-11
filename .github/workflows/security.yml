@@ -1,5 +1,10 @@
 name: Security analysis
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [main, dev, homologue]
+  pull_request:
+    branches: [main, dev, homologue]
+  workflow_dispatch:
 permissions:
   contents: read
 concurrency:
@@ -7,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   secrets:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -36,7 +41,7 @@ jobs:
           retention-days: 7
   codeql:
     name: CodeQL (${{ matrix.language }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read

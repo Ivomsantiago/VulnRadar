@@ -44,3 +44,5 @@ Integrações públicas reais são opt-in: em `backend`, defina `$env:VULNRADAR_
 Para auditorias, use `pip-audit==2.10.1 -r backend/requirements.txt --no-deps --disable-pip` e Gitleaks com relatório redigido. O requirements contém versões fixadas, mas ainda não hashes de distribuição. SBOM cobre manifests declarados, sem sistema operacional ou ambiente Semgrep opcional. Comandos e saídas reais ficam em `docs/REVIEW_V4.md`.
 
 Use commits por tema no formato `tipo(escopo): descrição`. Não inclua `.env`, dados, bancos, segredos ou screenshots operacionais. Não faça push, publique release ou altere nome/description/topics sem autorização. Licença MIT.
+
+Trabalhe sempre na `main`. As branches permanentes são `main`, `dev` e `homologue`; não crie uma nova por tarefa. Veja [política e preservação das branches](docs/BRANCHES.md).
