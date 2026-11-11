@@ -2434,6 +2434,12 @@ footer > small {
   .section-title {
     gap: 8px;
     align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .section-title > .segmented {
+    max-width: 100%;
+    min-width: 0;
+    margin-left: auto;
   }
   .section-title > div:first-child {
     flex-wrap: wrap;

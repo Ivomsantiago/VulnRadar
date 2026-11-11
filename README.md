@@ -4,7 +4,9 @@
 
 **Execução local por padrão, com chave pessoal obrigatória.** O modo de equipe usa HTTPS e perfis em um workspace compartilhado. Antes de operar no servidor privado, siga o [runbook](docs/RUNBOOK.md) e confira as [pendências verificáveis da V4](docs/IMPLEMENTATION_STATUS.md). Não há isolamento entre organizações, sandbox forte de scanners ou aprovação para exposição pública.
 
-![Fila de trabalho V4, banco descartável de testes](docs/screenshots/v4/after/1440/dashboard.png)
+![Fila de investigação e exposição das aplicações, captura real da interface desktop](docs/screenshots/readme/1440/overview.png)
+
+Captura de 11/11/2026 em instância descartável, com projeto de validação e dados de teste identificados. [Galeria atual: acesso, aplicações, evidências e versão móvel](docs/screenshots/readme/README.md).
 
 ## Instalação local
 
@@ -39,5 +41,7 @@ Consultas de pacotes ao OSV e armazenamento de trechos de código começam **des
 ## Documentação e validação
 
 [Estado e linha do tempo](docs/IMPLEMENTATION_STATUS.md) · [Revisão V4 e achados](docs/REVIEW_V4.md) · [Arquitetura e dados](docs/ARCHITECTURE.md) · [Operação e recuperação](docs/RUNBOOK.md) · [Privacidade](docs/PRIVACY.md) · [Segurança](SECURITY.md) · [Contribuição e testes](CONTRIBUTING.md) · [Changelog](CHANGELOG.md) · [Comparativo visual](docs/screenshots/v4/README.md).
+
+[Auditoria de segurança e imagens — 11/11](docs/SECURITY_REVIEW_2026-11-11.md) · [Branches: main, dev e homologue](docs/BRANCHES.md).
 
 Backend, frontend e navegador foram exercitados em Windows com dados descartáveis; as contagens e os limites estão no estado verificável. Docker, PostgreSQL e os workflows remotos da V4 permanecem **NÃO VALIDADOS**. Licença MIT.

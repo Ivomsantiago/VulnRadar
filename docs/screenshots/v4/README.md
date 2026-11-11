@@ -2,6 +2,8 @@
 
 Capturas reais do navegador sobre **banco e repositório descartáveis de teste**, com respostas OSV fictícias identificadas e Semgrep real. Não representam dados de produção ou um pentest do repositório de fixture. Antes e depois têm os mesmos 18 caminhos (17 jornadas/rotas históricas mais `/oci`) nas larguras 1920/1440/1366/1024/768/390 px. O estado evolui durante os testes, por isso as contagens não são comparáveis como métricas.
 
+**Revisão de privacidade em 11/11/2026:** os dois conjuntos foram recapturados em caminhos neutros, substituindo imagens que expunham o usuário do Windows. O antes foi reconstruído a partir da fonte original `79eff96`, exportada somente para produzir artefatos, sem criar checkout/worktree; usa um novo banco de fixture e não reproduz as contagens do banco anterior. O depois corresponde à main revisada. Os arquivos antigos continuam em commits históricos; esta atualização não reescreve o Git. Para leitura rápida, use a [galeria atual do README](../readme/README.md).
+
 | Superfície | Antes | Depois | Mudança observável |
 | --- | --- | --- | --- |
 | Overview 1440 | [Antes](before/1440/dashboard.png) | [Depois](after/1440/dashboard.png) | Fila primeiro, contexto em linha, sem quatro cartões idênticos no topo |

@@ -1,4 +1,20 @@
 import { test, expect } from "@playwright/test";
+test("overview period controls remain visible with wider fallback fonts", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await expect(page.locator("main h1")).toBeVisible();
+  await expect(page.getByRole("status", { name: "Carregando dados" })).toHaveCount(0);
+  for (const font of ["Arial, sans-serif", "Tahoma, sans-serif"]) {
+    await page.evaluate(value => { document.documentElement.style.fontFamily = value; }, font);
+    const controls = page.getByLabel("Período dos gráficos");
+    const last = controls.getByRole("button", { name: "90 dias", exact: true });
+    const bounds = await last.boundingBox();
+    expect(bounds!.x + bounds!.width, font).toBeLessThanOrEqual(391);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth), font).toBeLessThanOrEqual(391);
+    await last.click();
+    await expect(last).toHaveAttribute("aria-pressed", "true");
+  }
+});
 const routes = [
   ["/", "dashboard"],
   ["/priorities", "priorities"],

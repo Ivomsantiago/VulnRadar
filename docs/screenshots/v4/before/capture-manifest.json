@@ -1,0 +1,654 @@
+{
+  "fixture": "Disposable mock OSV, no operational database",
+  "source": "79eff96 baseline exported for capture",
+  "captures": [
+    {
+      "route": "/",
+      "width": 1920,
+      "image": "1920/dashboard.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/priorities",
+      "width": 1920,
+      "image": "1920/priorities.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/feed",
+      "width": 1920,
+      "image": "1920/feed.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/search",
+      "width": 1920,
+      "image": "1920/search.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/technologies",
+      "width": 1920,
+      "image": "1920/technologies.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/exploration",
+      "width": 1920,
+      "image": "1920/exploration.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/projects",
+      "width": 1920,
+      "image": "1920/projects.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sca",
+      "width": 1920,
+      "image": "1920/sca.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sast",
+      "width": 1920,
+      "image": "1920/sast.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/inventory",
+      "width": 1920,
+      "image": "1920/inventory.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/oci",
+      "width": 1920,
+      "image": "1920/oci.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/watchlist",
+      "width": 1920,
+      "image": "1920/watchlist.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/alerts",
+      "width": 1920,
+      "image": "1920/alerts.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/triage",
+      "width": 1920,
+      "image": "1920/triage.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/reports",
+      "width": 1920,
+      "image": "1920/reports.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sources",
+      "width": 1920,
+      "image": "1920/sources.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/history",
+      "width": 1920,
+      "image": "1920/history.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/settings",
+      "width": 1920,
+      "image": "1920/settings.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/",
+      "width": 1440,
+      "image": "1440/dashboard.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/priorities",
+      "width": 1440,
+      "image": "1440/priorities.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/feed",
+      "width": 1440,
+      "image": "1440/feed.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/search",
+      "width": 1440,
+      "image": "1440/search.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/technologies",
+      "width": 1440,
+      "image": "1440/technologies.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/exploration",
+      "width": 1440,
+      "image": "1440/exploration.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/projects",
+      "width": 1440,
+      "image": "1440/projects.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sca",
+      "width": 1440,
+      "image": "1440/sca.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sast",
+      "width": 1440,
+      "image": "1440/sast.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/inventory",
+      "width": 1440,
+      "image": "1440/inventory.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/oci",
+      "width": 1440,
+      "image": "1440/oci.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/watchlist",
+      "width": 1440,
+      "image": "1440/watchlist.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/alerts",
+      "width": 1440,
+      "image": "1440/alerts.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/triage",
+      "width": 1440,
+      "image": "1440/triage.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/reports",
+      "width": 1440,
+      "image": "1440/reports.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sources",
+      "width": 1440,
+      "image": "1440/sources.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/history",
+      "width": 1440,
+      "image": "1440/history.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/settings",
+      "width": 1440,
+      "image": "1440/settings.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/",
+      "width": 1366,
+      "image": "1366/dashboard.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/priorities",
+      "width": 1366,
+      "image": "1366/priorities.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/feed",
+      "width": 1366,
+      "image": "1366/feed.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/search",
+      "width": 1366,
+      "image": "1366/search.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/technologies",
+      "width": 1366,
+      "image": "1366/technologies.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/exploration",
+      "width": 1366,
+      "image": "1366/exploration.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/projects",
+      "width": 1366,
+      "image": "1366/projects.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sca",
+      "width": 1366,
+      "image": "1366/sca.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sast",
+      "width": 1366,
+      "image": "1366/sast.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/inventory",
+      "width": 1366,
+      "image": "1366/inventory.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/oci",
+      "width": 1366,
+      "image": "1366/oci.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/watchlist",
+      "width": 1366,
+      "image": "1366/watchlist.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/alerts",
+      "width": 1366,
+      "image": "1366/alerts.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/triage",
+      "width": 1366,
+      "image": "1366/triage.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/reports",
+      "width": 1366,
+      "image": "1366/reports.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sources",
+      "width": 1366,
+      "image": "1366/sources.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/history",
+      "width": 1366,
+      "image": "1366/history.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/settings",
+      "width": 1366,
+      "image": "1366/settings.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/",
+      "width": 1024,
+      "image": "1024/dashboard.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/priorities",
+      "width": 1024,
+      "image": "1024/priorities.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/feed",
+      "width": 1024,
+      "image": "1024/feed.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/search",
+      "width": 1024,
+      "image": "1024/search.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/technologies",
+      "width": 1024,
+      "image": "1024/technologies.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/exploration",
+      "width": 1024,
+      "image": "1024/exploration.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/projects",
+      "width": 1024,
+      "image": "1024/projects.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sca",
+      "width": 1024,
+      "image": "1024/sca.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sast",
+      "width": 1024,
+      "image": "1024/sast.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/inventory",
+      "width": 1024,
+      "image": "1024/inventory.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/oci",
+      "width": 1024,
+      "image": "1024/oci.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/watchlist",
+      "width": 1024,
+      "image": "1024/watchlist.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/alerts",
+      "width": 1024,
+      "image": "1024/alerts.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/triage",
+      "width": 1024,
+      "image": "1024/triage.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/reports",
+      "width": 1024,
+      "image": "1024/reports.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sources",
+      "width": 1024,
+      "image": "1024/sources.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/history",
+      "width": 1024,
+      "image": "1024/history.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/settings",
+      "width": 1024,
+      "image": "1024/settings.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/",
+      "width": 768,
+      "image": "768/dashboard.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/priorities",
+      "width": 768,
+      "image": "768/priorities.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/feed",
+      "width": 768,
+      "image": "768/feed.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/search",
+      "width": 768,
+      "image": "768/search.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/technologies",
+      "width": 768,
+      "image": "768/technologies.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/exploration",
+      "width": 768,
+      "image": "768/exploration.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/projects",
+      "width": 768,
+      "image": "768/projects.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sca",
+      "width": 768,
+      "image": "768/sca.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sast",
+      "width": 768,
+      "image": "768/sast.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/inventory",
+      "width": 768,
+      "image": "768/inventory.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/oci",
+      "width": 768,
+      "image": "768/oci.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/watchlist",
+      "width": 768,
+      "image": "768/watchlist.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/alerts",
+      "width": 768,
+      "image": "768/alerts.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/triage",
+      "width": 768,
+      "image": "768/triage.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/reports",
+      "width": 768,
+      "image": "768/reports.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sources",
+      "width": 768,
+      "image": "768/sources.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/history",
+      "width": 768,
+      "image": "768/history.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/settings",
+      "width": 768,
+      "image": "768/settings.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/",
+      "width": 390,
+      "image": "390/dashboard.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/priorities",
+      "width": 390,
+      "image": "390/priorities.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/feed",
+      "width": 390,
+      "image": "390/feed.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/search",
+      "width": 390,
+      "image": "390/search.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/technologies",
+      "width": 390,
+      "image": "390/technologies.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/exploration",
+      "width": 390,
+      "image": "390/exploration.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/projects",
+      "width": 390,
+      "image": "390/projects.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sca",
+      "width": 390,
+      "image": "390/sca.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sast",
+      "width": 390,
+      "image": "390/sast.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/inventory",
+      "width": 390,
+      "image": "390/inventory.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/oci",
+      "width": 390,
+      "image": "390/oci.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/watchlist",
+      "width": 390,
+      "image": "390/watchlist.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/alerts",
+      "width": 390,
+      "image": "390/alerts.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/triage",
+      "width": 390,
+      "image": "390/triage.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/reports",
+      "width": 390,
+      "image": "390/reports.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/sources",
+      "width": 390,
+      "image": "390/sources.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/history",
+      "width": 390,
+      "image": "390/history.png",
+      "viewportCapture": false
+    },
+    {
+      "route": "/settings",
+      "width": 390,
+      "image": "390/settings.png",
+      "viewportCapture": false
+    }
+  ]
+}

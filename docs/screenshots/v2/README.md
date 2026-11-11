@@ -1,5 +1,7 @@
 # Galeria V2
 
+Registro histórico da V2. A [galeria atual, revisada em 11/11/2026](../readme/README.md), mostra acesso autenticado e a interface em uso na main.
+
 Capturas reais de Chromium com frontend compilado e API executando. O servidor de validação usa banco temporário e repositório de fixture seguro; o código não é executado. A galeria desta entrega foi gerada no modo **OSV real + Semgrep local real**. Não descreve um banco operacional ou dados de um cliente.
 
 No CI, a mesma suíte usa respostas OSV explicitamente fictícias para reprodutibilidade. Esse modo está isolado em `scripts/browser_test_app.py` e não é usado no launcher operacional ou na imagem de produção.

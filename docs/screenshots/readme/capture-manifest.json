@@ -1,0 +1,54 @@
+{
+  "fixture": "Disposable mock OSV, no operational database",
+  "source": "main security review",
+  "captures": [
+    {
+      "route": "/",
+      "width": 1440,
+      "image": "1440/overview.png",
+      "viewportCapture": true
+    },
+    {
+      "route": "/projects",
+      "width": 1440,
+      "image": "1440/projects.png",
+      "viewportCapture": true
+    },
+    {
+      "route": "/triage",
+      "width": 1440,
+      "image": "1440/remediation.png",
+      "viewportCapture": true
+    },
+    {
+      "route": "/",
+      "width": 390,
+      "image": "390/overview.png",
+      "viewportCapture": true
+    },
+    {
+      "route": "/projects",
+      "width": 390,
+      "image": "390/projects.png",
+      "viewportCapture": true
+    },
+    {
+      "route": "/triage",
+      "width": 390,
+      "image": "390/remediation.png",
+      "viewportCapture": true
+    },
+    {
+      "route": "/triage",
+      "state": "finding drawer",
+      "width": 1440,
+      "image": "1440/investigation.png"
+    },
+    {
+      "route": "/",
+      "state": "login with empty credential field",
+      "width": 1440,
+      "image": "1440/access.png"
+    }
+  ]
+}
