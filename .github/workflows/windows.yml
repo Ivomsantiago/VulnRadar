@@ -62,7 +62,7 @@ jobs:
           --add-data "backend/alembic.ini;backend" --add-data "rules;rules" scripts/desktop.py
       - name: Smoke packaged executable with disposable database
         run: python scripts/smoke_windows_exe.py dist/VulnRadar/VulnRadar.exe
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: VulnRadar-Windows
           path: |
