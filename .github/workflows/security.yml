@@ -32,7 +32,7 @@ jobs:
           tar -xzf "$tool_dir/gitleaks.tar.gz" -C "$tool_dir" gitleaks
       - name: Scan full Git history with redacted output
         run: '"$RUNNER_TEMP/gitleaks/gitleaks" git --redact=100 --report-format sarif --report-path "$RUNNER_TEMP/gitleaks.sarif"'
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: gitleaks-redacted-report
