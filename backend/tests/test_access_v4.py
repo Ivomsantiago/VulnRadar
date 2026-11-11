@@ -193,3 +193,36 @@ def test_sse_budget_rejects_additional_connections(client, keys, monkeypatch):
     monkeypatch.setitem(access.stream_counts, "viewer", 4)
     response = client.get("/api/events", headers=bearer(keys["viewer"]))
     assert response.status_code == 429
+
+
+def test_one_key_cannot_exhaust_the_shared_session_budget(client, keys, monkeypatch):
+    monkeypatch.setattr(settings, "max_sessions", 3)
+    monkeypatch.setattr(settings, "max_sessions_per_key", 2)
+    for _ in range(3):
+        client.cookies.clear()
+        response = client.post("/api/auth/login", json={"access_key": keys["viewer"]}, headers=HEADERS)
+        assert response.status_code == 200
+    client.cookies.clear()
+    response = client.post("/api/auth/login", json={"access_key": keys["admin"]}, headers=HEADERS)
+    assert response.status_code == 200
+    assert sum(item.principal.role == "viewer" for item in access.sessions.values()) <= 2
+
+
+def test_all_declared_api_routes_enforce_authentication_and_role_policy(client, keys):
+    import re
+    public = {"/api/health", "/api/ready", "/api/auth/login", "/api/auth/session"}
+    for path, methods in app.openapi()["paths"].items():
+        if not path.startswith("/api/") or path in public:
+            continue
+        url = re.sub(r"\{[^}]+\}", "1", path)
+        for method in methods:
+            if method.upper() not in {"GET", "POST", "PATCH", "PUT", "DELETE"}:
+                continue
+            client.cookies.clear()
+            response = client.request(method, url, headers=HEADERS, **({"json": {}} if method != "get" else {}))
+            assert response.status_code == 401, (method, path, response.status_code)
+            for role in ("viewer", "analyst"):
+                if path == "/api/auth/logout" or access.permitted(role, method.upper(), url):
+                    continue
+                response = client.request(method, url, headers=bearer(keys[role]), **({"json": {}} if method != "get" else {}))
+                assert response.status_code == 403, (role, method, path, response.status_code)

@@ -2,7 +2,6 @@ import asyncio
 import json
 import re
 import shutil
-import tomllib
 import tempfile
 import yaml
 import os
@@ -12,9 +11,16 @@ from ..config import settings
 from ..security import safe_files, read_file
 from ..privacy import scanner_environment
 from ..process_guard import ProcessGuard
+from ..input_budget import load_json, load_toml, load_yaml
 from .intelligence import query_osv, query_osv_batch
 from .packages import package_identity
 from .usage import observe_imports
+
+
+class ComponentLimit(ValueError):
+    def __init__(self, items):
+        super().__init__("Manifesto excede o limite de componentes/avisos; análise parcial")
+        self.items = items
 
 
 def parse_dependencies(path: Path, content=None):
@@ -26,6 +32,8 @@ def parse_dependencies(path: Path, content=None):
     yarn_selectors = {}
 
     def add(ecosystem, package, version, direct=None):
+        if len(dependencies) >= settings.max_components or len(warnings) >= settings.max_components:
+            raise ComponentLimit(dependencies)
         version = str(version) if version is not None else ""
         valid = bool(package and version) and not any(c in version for c in "<>*^~| ${}[](),") and version.lower() not in {"latest", "release"}
         if ecosystem in {"npm", "Go", "crates.io"}:
@@ -51,7 +59,7 @@ def parse_dependencies(path: Path, content=None):
             warnings.append(f"Versão não resolvida: {package}")
 
     if name == "package-lock.json":
-        data = json.loads(text)
+        data = load_json(text)
         if "packages" in data:
             root_package = data["packages"].get("", {})
             direct = {**root_package.get("dependencies", {}), **root_package.get("devDependencies", {}), **root_package.get("optionalDependencies", {})}
@@ -72,7 +80,7 @@ def parse_dependencies(path: Path, content=None):
 
             walk(data.get("dependencies", {}), True)
     elif name == "pnpm-lock.yaml":
-        data = yaml.safe_load(text)
+        data = load_yaml(text)
         snapshots = data.get("snapshots") or data.get("packages", {})
         if not isinstance(snapshots, dict):
             raise ValueError("Estrutura pnpm inválida")
@@ -93,7 +101,7 @@ def parse_dependencies(path: Path, content=None):
                 warnings.append("Chave pnpm sem coordenadas resolvidas")
     elif name == "yarn.lock":
         if "__metadata:" in text:
-            data = yaml.safe_load(text)
+            data = load_yaml(text)
             for key, item in data.items():
                 if key != "__metadata" and isinstance(item, dict):
                     selector = item.get("resolution", key.split(", ")[0])
@@ -127,17 +135,17 @@ def parse_dependencies(path: Path, content=None):
                     warnings.append("Marcador de ambiente Python não avaliado; presença depende do ambiente alvo")
                 add("PyPI", match[1], match[2])
             else:
-                warnings.append(f"Requisito sem versão exata: {line[:100]}")
+                warnings.append("Requisito sem versão exata ou opção pip não analisada; conteúdo omitido para proteger credenciais")
     elif name in {"poetry.lock", "Cargo.lock", "uv.lock"}:
         ecosystem = "crates.io" if name == "Cargo.lock" else "PyPI"
-        for item in tomllib.loads(text).get("package", []):
+        for item in load_toml(text).get("package", []):
             add(ecosystem, item["name"], item["version"])
     elif name == "Pipfile.lock":
         for group in ("default", "develop"):
-            for package, item in json.loads(text).get(group, {}).items():
+            for package, item in load_json(text).get(group, {}).items():
                 add("PyPI", package, item.get("version", "").removeprefix("=="))
     elif name == "composer.lock":
-        data = json.loads(text)
+        data = load_json(text)
         for item in data.get("packages", []) + data.get("packages-dev", []):
             add("Packagist", item["name"], item["version"].removeprefix("v"))
     elif name == "go.mod":
@@ -185,12 +193,12 @@ def parse_dependencies(path: Path, content=None):
             if match:
                 add("Maven", f"{match[1]}:{match[2]}", match[3])
     elif name == "packages.lock.json":
-        for items in json.loads(text).get("dependencies", {}).values():
+        for items in load_json(text).get("dependencies", {}).values():
             for package, item in items.items():
                 if item.get("type", "").lower() != "project":
                     add("NuGet", package, item.get("resolved"), item.get("type") == "Direct" if item.get("type") in {"Direct", "Transitive"} else None)
     elif name == "project.assets.json":
-        data = json.loads(text)
+        data = load_json(text)
         direct = {package.lower() for framework in data.get("project", {}).get("frameworks", {}).values() for package in framework.get("dependencies", {})}
         for key, item in data.get("libraries", {}).items():
             if item.get("type") == "package":
@@ -209,7 +217,7 @@ def parse_dependencies(path: Path, content=None):
             elif match:
                 warnings.append("Dependência Ruby GIT/PATH sem versão de registro comprovada")
     elif name.endswith(".cdx.json") or name == "bom.json":
-        data = json.loads(text)
+        data = load_json(text)
         if data.get("bomFormat") != "CycloneDX":
             raise ValueError("SBOM não é CycloneDX")
         ecosystems = {"npm": "npm", "pypi": "PyPI", "maven": "Maven", "golang": "Go", "cargo": "crates.io", "nuget": "NuGet", "composer": "Packagist", "gem": "RubyGems"}
@@ -230,7 +238,7 @@ def parse_dependencies(path: Path, content=None):
         if companion.is_file():
             try:
                 companion_text = read_file(path.parent, companion).decode("utf-8-sig")
-                manifest = json.loads(companion_text) if companion.suffix == ".json" else tomllib.loads(companion_text)
+                manifest = load_json(companion_text) if companion.suffix == ".json" else load_toml(companion_text)
                 if companion.name == "package.json":
                     declarations = {key: value for group in ("dependencies", "devDependencies", "optionalDependencies") for key, value in manifest.get(group, {}).items()}
                     direct = set(declarations)
@@ -311,7 +319,13 @@ def inventory_root(root):
                 return inventory, warnings
             inventory.extend(items)
             warnings.extend(notes)
-        except (ValueError, KeyError, TypeError, OSError) as exc:
+        except ComponentLimit as exc:
+            for item in exc.items:
+                item["file"] = str(path.relative_to(root))
+            inventory.extend(exc.items[:max(0, settings.max_components - len(inventory))])
+            warnings.append("Manifesto excedeu o limite; inventário observado preservado parcialmente, sem resolver achados por ausência")
+            return inventory, warnings
+        except (ValueError, KeyError, TypeError, AttributeError, OSError) as exc:
             warnings.append(f"Falha no parser {path.relative_to(root)}: {type(exc).__name__}")
     if not inventory:
         warnings.append("Nenhuma dependência com versão resolvida encontrada")

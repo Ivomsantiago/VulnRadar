@@ -141,10 +141,14 @@ def login(body: LoginInput, request: Request, response: Response) -> dict[str, s
     for digest, old in list(sessions.items()):
         if tick - old.created >= settings.session_minutes * 60 or tick - old.seen >= settings.session_idle_minutes * 60:
             sessions.pop(digest, None)
-    if len(sessions) >= settings.max_sessions:
-        raise HTTPException(429, "Limite de sessões atingido; aguarde expiração ou encerre uma sessão")
     old_token = request.cookies.get(COOKIE, "")
     sessions.pop(hashlib.sha256(old_token.encode()).hexdigest(), None)
+    owned = sorted(((digest, value) for digest, value in sessions.items() if value.principal.name == principal.name), key=lambda item: item[1].created)
+    while len(owned) >= settings.max_sessions_per_key:
+        digest, _ = owned.pop(0)
+        sessions.pop(digest, None)
+    if len(sessions) >= settings.max_sessions:
+        raise HTTPException(429, "Limite de sessões atingido; aguarde expiração ou encerre uma sessão")
     token = secrets.token_urlsafe(32)
     sessions[hashlib.sha256(token.encode()).hexdigest()] = BrowserSession(principal, tick, tick)
     response.set_cookie(COOKIE, token, httponly=True, secure=settings.access_mode == "team", samesite="strict", path="/", max_age=settings.session_minutes * 60)

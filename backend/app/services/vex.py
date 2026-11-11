@@ -5,6 +5,7 @@ import json
 from sqlalchemy import select
 from ..db import Activity, Alias, VexStatement, now, utc_datetime
 from ..security_context import actor
+from ..input_budget import check_structure
 from .history import record_state
 from .reporting import cyclone_dx
 from .schema_validation import cyclonedx_validator
@@ -23,6 +24,7 @@ def component_purl(finding):
 
 
 def import_vex(session, finding, document, format, apply_decision, operator_reason):
+    check_structure(document)
     purl = component_purl(finding)
     aliases = set(session.scalars(select(Alias.id).where(Alias.vulnerability_id == finding.vulnerability_id))) | {finding.vulnerability_id}
     candidates = []

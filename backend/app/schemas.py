@@ -2,6 +2,7 @@ from typing import Any, Literal
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from .db import utc_datetime
+from .input_budget import check_structure
 
 
 class InputModel(BaseModel):
@@ -69,12 +70,21 @@ class ScanView(BaseModel):
     completed_at: datetime | None
 
 
-class SarifInput(InputModel):
+class EvidenceInput(InputModel):
     document: dict[str, Any]
 
+    @field_validator("document")
+    @classmethod
+    def bounded_document(cls, value: dict[str, Any]) -> dict[str, Any]:
+        check_structure(value)
+        return value
 
-class VexInput(InputModel):
-    document: dict[str, Any]
+
+class SarifInput(EvidenceInput):
+    pass
+
+
+class VexInput(EvidenceInput):
     format: Literal["openvex", "cyclonedx"] = "openvex"
     apply_decision: bool = False
     reason: str = Field("", max_length=4000)

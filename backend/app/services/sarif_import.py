@@ -8,6 +8,7 @@ from urllib.parse import unquote, urlsplit
 from jsonschema import Draft7Validator, FormatChecker
 from ..config import settings
 from ..db import Activity, Scan, now
+from ..input_budget import check_structure
 from .findings import index_scan
 
 
@@ -36,6 +37,7 @@ def artifact_path(location, run):
 
 
 def normalize_sarif(document):
+    check_structure(document)
     runs = document.get("runs")
     if not isinstance(runs, list) or not all(isinstance(run, dict) and isinstance(run.get("results", []), list) for run in runs):
         raise ValueError("Estrutura SARIF inválida")

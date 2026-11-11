@@ -8,6 +8,13 @@ import app.services.scanner as scanner  # noqa: E402
 import app.services.monitoring as monitoring  # noqa: E402
 from app.config import settings  # noqa: E402
 
+# Test fixtures must never inherit real delivery destinations or source credentials.
+settings.webhook_url = None
+settings.smtp_host = None
+settings.notification_channel = "webhook"
+settings.nvd_api_key = None
+settings.github_token = None
+
 
 async def mock_osv(ecosystem, package, version):
     # Explicitly fictional data, isolated to the disposable test server database.
@@ -20,6 +27,13 @@ scanner.query_osv = mock_osv
 main_module.query_osv = mock_osv
 monitoring.query_osv = mock_osv
 settings.osv_batch = False
+
+
+@app.middleware("http")
+async def identify_disposable_fixture(request, call_next):
+    response = await call_next(request)
+    response.headers["X-VulnRadar-Test-Fixture"] = "mock-osv"
+    return response
 
 # CPE explicitamente fictício apenas no entrypoint de testes descartáveis.
 from contextlib import asynccontextmanager  # noqa: E402

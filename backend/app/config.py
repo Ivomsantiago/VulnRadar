@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     session_minutes: int = Field(480, ge=5, le=1440)
     session_idle_minutes: int = Field(30, ge=1, le=60)
     max_sessions: int = Field(256, ge=1, le=1000)
+    max_sessions_per_key: int = Field(4, ge=1, le=32)
     requests_per_minute: int = Field(600, ge=10, le=60000)
     mutations_per_minute: int = Field(60, ge=1, le=6000)
     osv_queries_enabled: bool = False
