@@ -1,5 +1,7 @@
 # Revisão V4 — 09/11/2026
 
+Registro histórico da V4. A continuação de 11/11 trabalha sempre na main e está em [revisão de segurança e imagens](SECURITY_REVIEW_2026-11-11.md), [estado atual](IMPLEMENTATION_STATUS.md) e [branches permanentes](BRANCHES.md). Os resultados abaixo se referem à execução original.
+
 Base: `79eff96`, checkout existente, branch `v4/revisao`. Escopo adicional confirmado: equipe em servidor privado, um workspace compartilhado. A revisão entrega controles e funcionalidades verificadas, mas o **aceite integral da missão V4 e a homologação de produção permanecem pendentes**. Não houve push, deploy, alteração do banco operacional ou envio de notificações reais.
 
 ## Linha de base, antes de alterar código

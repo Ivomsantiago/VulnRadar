@@ -7,11 +7,11 @@
     },
     {
       "path": "backend/app/access.py",
-      "lines": 160
+      "lines": 164
     },
     {
       "path": "backend/app/config.py",
-      "lines": 89
+      "lines": 90
     },
     {
       "path": "backend/app/db.py",
@@ -24,6 +24,10 @@
     {
       "path": "backend/app/imports.py",
       "lines": 56
+    },
+    {
+      "path": "backend/app/input_budget.py",
+      "lines": 67
     },
     {
       "path": "backend/app/logging.py",
@@ -59,7 +63,7 @@
     },
     {
       "path": "backend/app/schemas.py",
-      "lines": 106
+      "lines": 116
     },
     {
       "path": "backend/app/security.py",
@@ -131,11 +135,11 @@
     },
     {
       "path": "backend/app/services/sarif_import.py",
-      "lines": 83
+      "lines": 85
     },
     {
       "path": "backend/app/services/scanner.py",
-      "lines": 478
+      "lines": 492
     },
     {
       "path": "backend/app/services/schema_validation.py",
@@ -151,7 +155,7 @@
     },
     {
       "path": "backend/app/services/vex.py",
-      "lines": 90
+      "lines": 92
     },
     {
       "path": "backend/app/workers.py",
@@ -251,7 +255,7 @@
     },
     {
       "path": "frontend/src/style.css",
-      "lines": 2930
+      "lines": 2936
     },
     {
       "path": "frontend/src/Technologies.tsx",
@@ -287,7 +291,7 @@
     },
     {
       "path": "scripts/browser_test_app.py",
-      "lines": 43
+      "lines": 57
     },
     {
       "path": "scripts/create_access_key.py",
@@ -353,7 +357,7 @@
     },
     {
       "path": "backend/app/access.py",
-      "line": 156,
+      "line": 160,
       "method": "POST",
       "route": "/api/auth/logout",
       "public": false,
@@ -1153,13 +1157,13 @@
     },
     {
       "path": "backend/app/services/scanner.py",
-      "line": 20,
+      "line": 26,
       "function": "parse_dependencies",
-      "lines": 254
+      "lines": 256
     },
     {
       "path": "backend/app/services/scanner.py",
-      "line": 358,
+      "line": 372,
       "function": "sast",
       "lines": 121
     },
@@ -1277,7 +1281,7 @@
     },
     {
       "path": "backend/app/services/scanner.py",
-      "lines": 478
+      "lines": 492
     },
     {
       "path": "frontend/src/Findings.tsx",
@@ -1301,7 +1305,7 @@
     },
     {
       "path": "frontend/src/style.css",
-      "lines": 2930
+      "lines": 2936
     }
   ],
   "tree": [
@@ -1318,6 +1322,7 @@
     "backend/app/db.py",
     "backend/app/http_security.py",
     "backend/app/imports.py",
+    "backend/app/input_budget.py",
     "backend/app/logging.py",
     "backend/app/main.py",
     "backend/app/migration_runner.py",

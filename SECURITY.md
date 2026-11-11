@@ -26,3 +26,11 @@ As APIs têm autenticação e autorização centrais, negação de rotas desconh
 Proteja `.env`, certificados, volumes e backups por permissões/ACL e criptografia do host; não há criptografia transparente do banco implementada. Use contas pseudônimas, egress restrito e logs sem corpos/cookies/tokens. Proxies e infraestrutura devem seguir a mesma política. Retenção é opt-in e preserva evidências/triagem; o [documento de privacidade](docs/PRIVACY.md) descreve os limites.
 
 Leia [achados, regressões e pendências](docs/REVIEW_V4.md), [estado executado](docs/IMPLEMENTATION_STATUS.md) e [runbook](docs/RUNBOOK.md). Scans vazios, coletas sem correspondência e testes verdes não demonstram ausência de vulnerabilidades.
+
+## Revisão de 11/11/2026
+
+[Auditoria atual e evidências](docs/SECURITY_REVIEW_2026-11-11.md). Novos controles limitam documentos a 32 níveis/200 mil nós antes da validação de domínio, recusam aliases/merges YAML em lockfiles e aplicam o limite de componentes durante o parsing. Documentos fora do perfil produzem cobertura parcial, preservando inventários anteriores e os componentes já observados.
+
+Linhas pip sem versão/opções não são copiadas para avisos de scan, pois podem conter credenciais de índices privados. A correção protege novas análises; registros e exportações antigos permanecem sujeitos à revisão administrativa, sem alteração automática do banco operacional. Cada chave tem até quatro sessões por padrão, com rotação da mais antiga da mesma conta; o limite global permanece independente.
+
+O entrypoint de navegador descartável desabilita destinos de notificação e credenciais de fontes herdados. Ele não deve ser usado para operar o serviço real. Capturas de documentação usam raízes neutras e uma conta de teste; o capturador recusa servidores sem a identificação explícita da fixture.

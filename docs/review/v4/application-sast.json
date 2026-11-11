@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-11",
+  "limitation": "Local rule set only; no findings is not proof of safety",
+  "reports": [
+    {
+      "scope": "backend/app",
+      "engine": "Semgrep; somente regras locais, sem prova de explorabilidade",
+      "version": "1.184.0",
+      "coverage": "rules-only",
+      "rules_digest": "1930aa57c37b785030d791d62f34c71c74bcea5da59b321508f427ee68d01b64",
+      "findings": [],
+      "warnings": []
+    },
+    {
+      "scope": "frontend/src",
+      "engine": "Semgrep; somente regras locais, sem prova de explorabilidade",
+      "version": "1.184.0",
+      "coverage": "rules-only",
+      "rules_digest": "1930aa57c37b785030d791d62f34c71c74bcea5da59b321508f427ee68d01b64",
+      "findings": [],
+      "warnings": []
+    }
+  ]
+}

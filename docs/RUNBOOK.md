@@ -40,7 +40,7 @@ O bind permanece loopback. Para acesso por VPN/interface privada, configure `--h
 | analyst | viewer + triagem, scans de projetos existentes, watchlists, consultas por pacote e importação SARIF/VEX |
 | admin | Todas as rotas, cadastro de projetos, exposição declarada, configurações, scheduler, retenção e sincronização |
 
-Logout revoga o cookie. Sessões ficam em memória (até 256), expiram após 480 min absolutos e 30 min sem requisições autenticadas; polling pode contar como atividade. Reinício revoga todas. Alterar/remover chave/perfil no `.env` exige reiniciar. A API aceita `Authorization: Bearer <chave>`; nunca coloque a chave na URL. Mutações também precisam de `X-VulnRadar-Client: web` e JSON quando houver corpo. Não há MFA/SSO.
+Logout revoga o cookie. Sessões ficam em memória (até 256 no total, quatro por chave por padrão), expiram após 480 min absolutos e 30 min sem requisições autenticadas; polling pode contar como atividade. Ao exceder `MAX_SESSIONS_PER_KEY`, o login revoga a sessão mais antiga da própria conta. Reinício revoga todas. Alterar/remover chave/perfil no `.env` exige reiniciar. A API aceita `Authorization: Bearer <chave>`; nunca coloque a chave na URL. Mutações também precisam de `X-VulnRadar-Client: web` e JSON quando houver corpo. Não há MFA/SSO.
 
 Orçamentos padrão: 600 requisições/min e 60 mutações/min por identidade, cinco tentativas de login/min por origem de conexão, quatro operações caras simultâneas, quatro SSE por usuário/32 globais. SQLite e limites são de um processo. O prazo HTTP é 30 s; jobs têm seu prazo separado e podem continuar após timeout da resposta. Antes de reenviar, consulte o histórico.
 
@@ -60,6 +60,8 @@ py -3.12 -m venv .semgrep-venv
 Linux usa `.semgrep-venv/bin/python`. Scripts de start/teste adicionam esse diretório ao PATH. No modo equipe, a instalação do binário não remove o bloqueio de política. Habilite `ALLOW_LOCAL_SAST_IN_TEAM=true` apenas com executor/conta/filesystem/egress isolados; os controles de subprocesso implementados não são sandbox forte. Windows nativo foi exercitado localmente com as regras do projeto, sem garantir toda versão/distribuição do Semgrep.
 
 SARIF: upload pela página de aplicações para projeto existente. Perfil 2.1.0 autocontido, 1–10 runs, até 2000 resultados e limite de corpo de 5 MB. Exige ruleId; propriedades externas, traversal e URIs remotos são recusados. Conserva evidência normalizada e hash, sem armazenar o documento bruto completo. Importação permanece parcial e não resolve por ausência. Trate artefatos recebidos como confidenciais e confira a origem fora da aplicação.
+
+Importações e manifests têm limite de 32 níveis e 200 mil nós de estrutura. Lockfiles YAML com aliases ou merges são recusados; forneça o documento expandido. Excesso de componentes interrompe o parser, preserva o inventário observado até o limite e mantém a análise parcial. Linhas pip não interpretadas não são exibidas integralmente nos avisos, para proteger credenciais.
 
 VEX: importe na investigação do achado. OpenVEX 0.2 e CycloneDX 1.5, somente `not_affected`, correspondência exata de vulnerabilidade/alias e PURL/versão instalada, uma declaração aplicável, timestamp com fuso e justificativa suportada. A importação isolada não aplica triagem; marque a aplicação e informe motivo. Exportação exige declaração aplicada e achado ainda não aplicável. Perfis amplos, assinatura/autenticidade, outros estados VEX e conversões sem equivalência são recusados/não implementados.
 

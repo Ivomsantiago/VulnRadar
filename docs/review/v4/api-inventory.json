@@ -28,7 +28,7 @@
     },
     {
       "path": "backend/app/access.py",
-      "line": 156,
+      "line": 160,
       "method": "POST",
       "route": "/api/auth/logout",
       "public": false,

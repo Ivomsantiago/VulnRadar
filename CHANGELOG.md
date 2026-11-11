@@ -4,6 +4,15 @@ Mudanças relevantes seguem a estrutura [Keep a Changelog](https://keepachangelo
 
 ## [Unreleased] — V4
 
+### Revisão de 11/11/2026
+
+- Avisos pip omitem linhas potencialmente contendo credenciais; documentos têm limites estruturais e YAML rejeita aliases/merges antes da expansão.
+- Limite de componentes aplicado durante o parsing, preservando inventário parcial; manifestos malformados não descartam observações de outros arquivos.
+- Sessões limitadas por chave e fixtures sem destinos de notificações ou tokens herdados.
+- Galeria README recapturada em desktop/mobile com dados identificados de teste e caminhos neutros; comparativo V4 recapturado para privacidade.
+- Controle de período responsivo com fontes alternativas; CI fixado em Ubuntu 24.04 e instalação do browser com tentativas limitadas.
+- Branches permanentes main/dev/homologue, com trabalho sempre na main e preservação dos históricos anteriores.
+
 ### Adicionado
 
 - Chaves pessoais com validade, perfis viewer/analyst/admin, cookies revogáveis e auditoria de conta/request-id.
